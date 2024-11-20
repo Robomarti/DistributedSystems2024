@@ -7,8 +7,10 @@ sock.bind(('0.0.0.0', 55555))
 
 while True:
     clients = []
+    print("started waiting for clients")
 
     while True:
+        print("waiting connection...")
         data, address = sock.recvfrom(128)
 
         print('connection from: {}'.format(address))
@@ -25,5 +27,5 @@ while True:
     c2 = clients.pop()
     c2_addr, c2_port = c2
 
-    sock.sendto('{}{}{}'.format(c1_addr, c1_port, known_port).encode(), c2)
-    sock.sendto('{}{}{}'.format(c2_addr, c2_port, known_port).encode(), c1)
+    sock.sendto('{} {} {}'.format(c1_addr, c1_port, known_port).encode(), c2)
+    sock.sendto('{} {} {}'.format(c2_addr, c2_port, known_port).encode(), c1)
