@@ -1,31 +1,20 @@
-import socket
+"used this video: https://www.youtube.com/watch?v=1Fay1pjttLg"
 
-known_port = 50002
+from twisted.internet.protocol import DatagramProtocol
+from twisted.internet import reactor
 
-sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-sock.bind(('0.0.0.0', 55555))
+class Server(DatagramProtocol):
+    def __init__(self):
+        self.clients = set()
+    
+    def datagramReceived(self, datagram: bytes, addr):
+        datagram = datagram.decode("utf-8")
+        if datagram == "ready":
+            adresses = "\n".join([str(x) for x in self.clients])
+            self.transport.write(adresses.encode("utf-8"), addr)
+            self.clients.add(addr)
 
-while True:
-    clients = []
-    print("started waiting for clients")
-
-    while True:
-        print("waiting connection...")
-        data, address = sock.recvfrom(128)
-
-        print('connection from: {}'.format(address))
-        clients.append(address)
-
-        sock.sendto(b'ready', address)
-
-        if len(clients) == 2:
-            print('got 2 clients, sending details to each')
-            break
-
-    c1 = clients.pop()
-    c1_addr, c1_port = c1
-    c2 = clients.pop()
-    c2_addr, c2_port = c2
-
-    sock.sendto('{} {} {}'.format(c1_addr, c1_port, known_port).encode(), c2)
-    sock.sendto('{} {} {}'.format(c2_addr, c2_port, known_port).encode(), c1)
+if __name__ == '__main__':
+    port = 9999
+    reactor.listenUDP(port, Server())
+    reactor.run()

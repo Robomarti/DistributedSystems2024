@@ -1,68 +1,36 @@
-import socket
-import sys
-import threading
+"used this video: https://www.youtube.com/watch?v=1Fay1pjttLg"
 
-rendezvous = ('192.168.0.3', 55555)
+from twisted.internet.protocol import DatagramProtocol
+from twisted.internet import reactor
+from random import randint
 
-# connect to rendezvous
-print('connecting to rendezvous server')
+class Client(DatagramProtocol):
+    def __init__(self, host, port):
+        if host == "localhost":
+            host = "127.0.0.1"
 
-sock1 = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-sock1.bind(('0.0.0.0', 50001))
-sock1.sendto(b'0', rendezvous)
+        self.id = (host, port)
+        self.address = None
+        self.server = ("127.0.0.1",9999)
+        print("Working on id: ", self.id)
 
-while True:
-    data = sock1.recv(1024).decode()
+    def startProtocol(self):
+        self.transport.write("ready".encode("utf-8"), self.server)
 
-    if data.strip() == 'ready':
-        print('checked in with server, waiting')
-        break
-    
-data = sock1.recv(1024).decode()
-ip, sport, dport = data.split(' ')
-sport = int(sport)
-dport = int(dport)
+    def datagramReceived(self, datagram: bytes, addr):
+        datagram = datagram.decode("utf-8")
+        if addr == self.server:
+            print("Choose a client from these \n", datagram)
+            self.address = input("Write host:"), int(input("Write port:"))
+            reactor.callInThread(self.send_message)
+        else:
+            print(addr, ":", datagram)
 
-print('\ngot peer')
-print(f'ip: {ip}')
-print(f'source port: {sport}')
-print(f'destination port: {dport}\n')
+    def send_message(self):
+        while True:
+            self.transport.write(input(":::").encode('utf-8'), self.address)
 
-
-# punch hole
-# equivalent: echo 'punch hole' | nc -u -p 50001 x.x.x.x 50002
-print('punching hole')
-
-sock1.close()
-sock2 = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-sock2.bind(('0.0.0.0', sport))
-sock2.sendto(b'0', (ip, dport))
-
-print('ready to exchange messages\n')
-
-# listen for
-# equivalent: nc -u -l 50001
-def listen():
-    sock2.close()
-    sock3 = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    sock3.bind(('0.0.0.0', sport))
-
-    while True:
-        data = sock3.recv(1024)
-        print('\rpeer: {}\n'.format(data.decode()), end='')
-
-listener = threading.Thread(target=listen, daemon=True)
-listener.start()
-
-# send messages
-# equivalent: echo 'xxx' | nc -u -p 50002 x.x.x.x 50001
-sock4 = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-sock4.bind(('0.0.0.0', dport))
-
-while True:
-    msg = input('> ')
-    if (msg == "quit"):
-        print("quitting")
-        sock4.close()
-        break
-    sock4.sendto(msg.encode(), (ip, sport))
+if __name__ == '__main__':
+    port = randint(1000,5000) # port is random for now, to be able to test on same machine
+    reactor.listenUDP(port, Client('localhost', port))
+    reactor.run()
