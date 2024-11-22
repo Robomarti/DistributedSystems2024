@@ -2,7 +2,6 @@
 
 from twisted.internet.protocol import DatagramProtocol
 from twisted.internet import reactor
-from random import randint
 
 class Client(DatagramProtocol):
     def __init__(self, host, port):
@@ -10,8 +9,10 @@ class Client(DatagramProtocol):
             host = "127.0.0.1"
 
         self.id = (host, port)
-        self.address = None
+        self.addresses = []
         self.server = ("127.0.0.1",9999)
+        self.send_message_thread_active = False
+
         print("Working on id: ", self.id)
 
     def startProtocol(self):
@@ -20,17 +21,35 @@ class Client(DatagramProtocol):
     def datagramReceived(self, datagram: bytes, addr):
         datagram = datagram.decode("utf-8")
         if addr == self.server:
-            print("Choose a client from these \n", datagram)
-            self.address = input("Write host:"), int(input("Write port:"))
-            reactor.callInThread(self.send_message)
+            if datagram == "":
+                print("No other connections yet.")
+            else:
+                print("Peers you are being connected to:")
+
+                peer_addresses = datagram.split("!")
+                for address in peer_addresses:
+                    # remove parentheses, spaces and quotes for editing
+                    address = address.replace("(", "").replace(")", "").replace(" ", "").replace("'", "").replace('"', "")
+                    address_port = address.split(",")
+                    print(address_port)
+                    self.addresses.append((address_port[0], int(address_port[1])))
+
+                if not self.send_message_thread_active:
+                    reactor.callInThread(self.send_message)
+                    self.send_message_thread_active = True
         else:
-            print(addr, ":", datagram)
+            print("Message from: ", addr, ":", datagram)
 
     def send_message(self):
         while True:
-            self.transport.write(input(":::").encode('utf-8'), self.address)
+            message_to_send = input("Type a message: ")
+            for peer_address in self.addresses:
+                print("Sending a message to", peer_address)
+                self.transport.write(message_to_send.encode('utf-8'), peer_address)
 
 if __name__ == '__main__':
-    port = randint(1000,5000) # port is random for now, to be able to test on same machine
+    port = int(input("enter a unique port number: "))
+    # Dont worry about pylint errors such as "Module 'twisted.internet.reactor' has no 'listenUDP'
+    # member", this code still works.
     reactor.listenUDP(port, Client('localhost', port))
     reactor.run()
