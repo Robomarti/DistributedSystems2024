@@ -1,2 +1,11 @@
+attrs==24.2.0
+Automat==24.8.1
+constantly==23.10.4
+hyperlink==21.0.0
+idna==3.10
+incremental==24.7.2
 invoke==2.2.0
 pygame==2.6.1
+Twisted==24.10.0
+typing_extensions==4.12.2
+zope.interface==7.1.1

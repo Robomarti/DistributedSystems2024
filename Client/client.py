@@ -1,68 +1,55 @@
-import socket
-import sys
-import threading
+"used this video: https://www.youtube.com/watch?v=1Fay1pjttLg"
 
-rendezvous = ('192.168.0.3', 55555)
+from twisted.internet.protocol import DatagramProtocol
+from twisted.internet import reactor
 
-# connect to rendezvous
-print('connecting to rendezvous server')
+class Client(DatagramProtocol):
+    def __init__(self, host, port):
+        if host == "localhost":
+            host = "127.0.0.1"
 
-sock1 = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-sock1.bind(('0.0.0.0', 50001))
-sock1.sendto(b'0', rendezvous)
+        self.id = (host, port)
+        self.addresses = []
+        self.server = ("127.0.0.1",9999)
+        self.send_message_thread_active = False
 
-while True:
-    data = sock1.recv(1024).decode()
+        print("Working on id: ", self.id)
 
-    if data.strip() == 'ready':
-        print('checked in with server, waiting')
-        break
-    
-data = sock1.recv(1024).decode()
-ip, sport, dport = data.split(' ')
-sport = int(sport)
-dport = int(dport)
+    def startProtocol(self):
+        self.transport.write("ready".encode("utf-8"), self.server)
 
-print('\ngot peer')
-print(f'ip: {ip}')
-print(f'source port: {sport}')
-print(f'destination port: {dport}\n')
+    def datagramReceived(self, datagram: bytes, addr):
+        datagram = datagram.decode("utf-8")
+        if addr == self.server:
+            if datagram == "":
+                print("No other connections yet.")
+            else:
+                print("Peers you are being connected to:")
 
+                peer_addresses = datagram.split("!")
+                for address in peer_addresses:
+                    # remove parentheses, spaces and quotes for editing
+                    address = address.replace("(", "").replace(")", "").replace(" ", "").replace("'", "").replace('"', "")
+                    address_port = address.split(",")
+                    print(address_port)
+                    self.addresses.append((address_port[0], int(address_port[1])))
 
-# punch hole
-# equivalent: echo 'punch hole' | nc -u -p 50001 x.x.x.x 50002
-print('punching hole')
+                if not self.send_message_thread_active:
+                    reactor.callInThread(self.send_message)
+                    self.send_message_thread_active = True
+        else:
+            print("Message from: ", addr, ":", datagram)
 
-sock1.close()
-sock2 = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-sock2.bind(('0.0.0.0', sport))
-sock2.sendto(b'0', (ip, dport))
+    def send_message(self):
+        while True:
+            message_to_send = input("Type a message: ")
+            for peer_address in self.addresses:
+                print("Sending a message to", peer_address)
+                self.transport.write(message_to_send.encode('utf-8'), peer_address)
 
-print('ready to exchange messages\n')
-
-# listen for
-# equivalent: nc -u -l 50001
-def listen():
-    sock2.close()
-    sock3 = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    sock3.bind(('0.0.0.0', sport))
-
-    while True:
-        data = sock3.recv(1024)
-        print('\rpeer: {}\n'.format(data.decode()), end='')
-
-listener = threading.Thread(target=listen, daemon=True)
-listener.start()
-
-# send messages
-# equivalent: echo 'xxx' | nc -u -p 50002 x.x.x.x 50001
-sock4 = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-sock4.bind(('0.0.0.0', dport))
-
-while True:
-    msg = input('> ')
-    if (msg == "quit"):
-        print("quitting")
-        sock4.close()
-        break
-    sock4.sendto(msg.encode(), (ip, sport))
+if __name__ == '__main__':
+    port = int(input("enter a unique port number: "))
+    # Dont worry about pylint errors such as "Module 'twisted.internet.reactor' has no 'listenUDP'
+    # member", this code still works.
+    reactor.listenUDP(port, Client('localhost', port))
+    reactor.run()
