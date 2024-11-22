@@ -29,12 +29,16 @@ or
 source venv/bin/activate
 ```
 
-inside virtualenv or normally use 
+Inside virtualenv or normally use 
 ```bash
 pip install -r requirements.txt
 ```
 to install dependencies
 
+Inside virtualenv, to update requirements.txt after installing packages, use 
+```bash
+pip freeze -l > requirements.txt 
+```
 
 To start the application, use
 ```bash
