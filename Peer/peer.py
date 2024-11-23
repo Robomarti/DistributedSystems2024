@@ -3,6 +3,7 @@
 from twisted.internet.protocol import DatagramProtocol
 from twisted.internet import reactor
 from gameplay import Gameplay
+from logger import Logger
 
 class Peer(DatagramProtocol):
     def __init__(self, host, port):
@@ -14,17 +15,20 @@ class Peer(DatagramProtocol):
         self.server = ("127.0.0.1",9999)
         self.send_message_thread_active = False
         self.gameplay = Gameplay()
+        self.logger = Logger(self.id)
 
-        print("Working on id: ", self.id)
+        self.logger.log_message("Own address: " + str(self.id), False)
 
     def startProtocol(self):
         self.transport.write("ready".encode("utf-8"), self.server)
 
     def send_message(self):
         while True:
-            message_to_send = input("Type a message: ")
+            self.logger.log_message("\n"+"Type a message: ")
+            message_to_send = input()
+            self.logger.log_message(message_to_send, False)
             for peer_address in self.addresses:
-                print("Sending a message to", peer_address)
+                self.logger.log_message("Sending a message to: " + str(peer_address), False)
                 self.transport.write(message_to_send.encode('utf-8'), peer_address)
 
     def handle_datagram(self, datagram):
@@ -35,17 +39,19 @@ class Peer(DatagramProtocol):
                 deck.append(datagram_data[index])
             self.gameplay.create_deck(deck)
         else:
-            print("Peers you are being connected to:")
+            self.logger.log_message("You are being connected to peers.")
 
             peer_addresses = datagram_data
             for address in peer_addresses:
                 # remove parentheses, spaces and quotes for editing
                 address = address.replace("(", "").replace(")", "").replace(" ", "").replace("'", "").replace('"', "")
                 address_port = address.split(",")
-                print(address_port)
+                self.logger.log_message("Connecting to " + str(address_port), False)
                 self.addresses.append((address_port[0], int(address_port[1])))
 
             if not self.send_message_thread_active:
+                # Dont worry about pylint errors such as "Module 'twisted.internet.reactor' has no 'callInThread'
+                # member", this code still works.
                 reactor.callInThread(self.send_message)
                 self.send_message_thread_active = True
 
@@ -53,12 +59,13 @@ class Peer(DatagramProtocol):
         datagram = datagram.decode("utf-8")
         if addr == self.server:
             if datagram == "":
-                print("No other connections yet.")
+                self.logger.log_message("Waiting for connections")
                 self.gameplay.create_deck()
             else:
                 self.handle_datagram(datagram)
         else:
-            print("Message from: ", addr, ":", datagram)
+            self.logger.log_message("Message from: " + str(addr) + ": " + datagram)
+            self.logger.log_message("Type a message: ")
 
 if __name__ == '__main__':
     port = int(input("enter a unique port number: "))
