@@ -14,8 +14,8 @@ class Peer(DatagramProtocol):
         self.addresses = []
         self.server = ("127.0.0.1",9999)
         self.send_message_thread_active = False
-        self.gameplay = Gameplay()
         self.logger = Logger(self.id)
+        self.gameplay = Gameplay(self.logger)
 
         self.logger.log_message("Own address: " + str(self.id), False)
 
@@ -24,12 +24,23 @@ class Peer(DatagramProtocol):
 
     def send_message(self):
         while True:
-            self.logger.log_message("\n"+"Type a message: ")
-            message_to_send = input()
-            self.logger.log_message(message_to_send, False)
-            for peer_address in self.addresses:
-                self.logger.log_message("Sending a message to: " + str(peer_address), False)
-                self.transport.write(message_to_send.encode('utf-8'), peer_address)
+            self.logger.log_message("Type a command: ")
+            user_input = input()
+            self.logger.log_message(user_input, False)
+
+            # decide what to send to peers
+            message_to_send = self.gameplay.handle_input(user_input)
+
+            if message_to_send == "":
+                # user input was not valid
+                self.logger.log_message("Unsupported command")
+            else:
+                # send a valid command to peers
+                self.logger.log_message(message_to_send, False)
+
+                for peer_address in self.addresses:
+                    self.logger.log_message("Sending a message to: " + str(peer_address), False)
+                    self.transport.write(message_to_send.encode('utf-8'), peer_address)
 
     def handle_datagram(self, datagram):
         datagram_data = datagram.split("!")
@@ -40,6 +51,7 @@ class Peer(DatagramProtocol):
             self.gameplay.create_deck(deck)
         else:
             self.logger.log_message("You are being connected to peers.")
+            self.logger.log_message("Type a command: ")
 
             peer_addresses = datagram_data
             for address in peer_addresses:
@@ -65,7 +77,7 @@ class Peer(DatagramProtocol):
                 self.handle_datagram(datagram)
         else:
             self.logger.log_message("Message from: " + str(addr) + ": " + datagram)
-            self.logger.log_message("Type a message: ")
+            self.logger.log_message("Type a command: ")
 
 if __name__ == '__main__':
     port = int(input("enter a unique port number: "))
