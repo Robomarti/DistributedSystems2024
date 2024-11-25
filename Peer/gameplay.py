@@ -11,6 +11,7 @@ class Gameplay():
                       "D02", "D03", "D04",
                       "H02", "H03", "H04",
                       "S02", "S03", "S04"]
+        self.points = 0
 
     def create_deck(self, deck_values=None):
         if deck_values is None:
@@ -62,3 +63,15 @@ class Gameplay():
             for card in incoming_command[1::]:
                 self.deck.append(card)
             self.logger.log_message("Deck created")
+        elif incoming_command[0].upper() == "DRAW_CARD":
+            self.logger.log_message("peer drew card")
+        elif incoming_command[0].upper() == "PASS_TURN":
+            self.logger.log_message("peer passed")
+        elif incoming_command[0].upper() == "START_GAME":
+            self.logger.log_message("game started")
+        elif incoming_command[0].upper() == "END_GAME":
+            self.logger.log_message("game ended")
+        elif incoming_command[0].upper() == "INVALID_ACTION":
+            self.logger.log_message("INVALID_ACTION")
+        elif incoming_command[0].upper() == "SYNC_ERROR":
+            self.logger.log_message("SYNC_ERROR")
