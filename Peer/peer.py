@@ -14,8 +14,8 @@ class Peer(DatagramProtocol):
         self.addresses = []
         self.server = ("127.0.0.1",9999)
         self.send_message_thread_active = False
-        self.gameplay = Gameplay()
         self.logger = Logger(self.id)
+        self.gameplay = Gameplay(self.logger)
 
         self.logger.log_message("Own address: " + str(self.id), False)
 
@@ -24,48 +24,61 @@ class Peer(DatagramProtocol):
 
     def send_message(self):
         while True:
-            self.logger.log_message("\n"+"Type a message: ")
-            message_to_send = input()
-            self.logger.log_message(message_to_send, False)
-            for peer_address in self.addresses:
-                self.logger.log_message("Sending a message to: " + str(peer_address), False)
-                self.transport.write(message_to_send.encode('utf-8'), peer_address)
+            self.logger.log_message("Type a command: ")
+            user_input = input()
+            self.logger.log_message(user_input, False)
 
-    def handle_datagram(self, datagram):
+            # decide what to send to peers
+            message_to_send = self.gameplay.handle_input(user_input)
+
+            if message_to_send == "":
+                # user input was not valid
+                self.logger.log_message("Unsupported command")
+            elif message_to_send != "developer command":
+                # send a valid command to peers
+                self.logger.log_message("Supported command: " + message_to_send, False)
+
+                for peer_address in self.addresses:
+                    self.logger.log_message("Sending a message to: " + str(peer_address), False)
+                    self.transport.write(message_to_send.encode('utf-8'), peer_address)
+
+    def handle_datagram_from_server(self, datagram: str):
         datagram_data = datagram.split("!")
-        if datagram_data[0] == "CREATE_DECK":
-            deck = []
-            for index in range(1, len(datagram_data)):
-                deck.append(datagram_data[index])
-            self.gameplay.create_deck(deck)
-        else:
-            self.logger.log_message("You are being connected to peers.")
+        self.logger.log_message("You are being connected to peers.")
 
-            peer_addresses = datagram_data
-            for address in peer_addresses:
-                # remove parentheses, spaces and quotes for editing
-                address = address.replace("(", "").replace(")", "").replace(" ", "").replace("'", "").replace('"', "")
-                address_port = address.split(",")
-                self.logger.log_message("Connecting to " + str(address_port), False)
-                self.addresses.append((address_port[0], int(address_port[1])))
+        peer_addresses = datagram_data
+        for address in peer_addresses:
+            # remove parentheses, spaces and quotes for editing
+            address = address.replace("(", "").replace(")", "").replace(" ", "").replace("'", "").replace('"', "")
+            address_port = address.split(",")
+            self.logger.log_message("Connecting to " + str(address_port), False)
+            self.addresses.append((address_port[0], int(address_port[1])))
 
-            if not self.send_message_thread_active:
-                # Dont worry about pylint errors such as "Module 'twisted.internet.reactor' has no 'callInThread'
-                # member", this code still works.
-                reactor.callInThread(self.send_message)
-                self.send_message_thread_active = True
+        if not self.send_message_thread_active:
+            # Dont worry about pylint errors such as "Module 'twisted.internet.reactor' 
+            # has no 'callInThread' member", this code still works.
+            reactor.callInThread(self.send_message)
+            self.send_message_thread_active = True
 
     def datagramReceived(self, datagram: bytes, addr):
         datagram = datagram.decode("utf-8")
         if addr == self.server:
+            # renderzvous server has sent something
             if datagram == "":
-                self.logger.log_message("Waiting for connections")
+                self.logger.log_message("You are the first player online, waiting for connections")
                 self.gameplay.create_deck()
             else:
-                self.handle_datagram(datagram)
+                self.handle_datagram_from_server(datagram)
         else:
-            self.logger.log_message("Message from: " + str(addr) + ": " + datagram)
-            self.logger.log_message("Type a message: ")
+            # a peer has sent something
+            splitted_command = datagram.split("!")
+            if splitted_command[0].upper() in self.gameplay.supported_incoming_commands:
+                self.logger.log_message("Command from: "
+                                        + str(addr) + ": " + splitted_command[0], False)
+                self.gameplay.handle_incoming_commands(datagram)
+            else:
+                self.logger.log_message("Message from: " + str(addr) + ": " + datagram)
+                self.logger.log_message("Type a command: ")
 
 if __name__ == '__main__':
     port = int(input("enter a unique port number: "))
