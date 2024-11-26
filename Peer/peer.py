@@ -66,7 +66,7 @@ class Peer(DatagramProtocol):
             # renderzvous server has sent something
             if datagram == "":
                 self.logger.log_message("You are the first player online, waiting for connections")
-                self.gameplay.create_deck()
+                self.gameplay.deck_host_and_first_player = True
             else:
                 self.handle_datagram_from_server(datagram)
         else:
