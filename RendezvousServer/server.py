@@ -1,9 +1,10 @@
-"used this video: https://www.youtube.com/watch?v=1Fay1pjttLg"
+# used this video: https://www.youtube.com/watch?v=1Fay1pjttLg as basis
 
 from twisted.internet.protocol import DatagramProtocol
 from twisted.internet import reactor
 
 class Server(DatagramProtocol):
+    """Handles peers finding each other"""
     def __init__(self):
         self.clients = set()
 

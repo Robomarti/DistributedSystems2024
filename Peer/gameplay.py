@@ -7,7 +7,7 @@ class Gameplay():
         self.deck = []
         self.logger = logger
         self.supported_incoming_commands = ["CREATE_DECK","DRAW_CARD", "PASS_TURN", "START_GAME",
-                                            "END_GAME", "INVALID_ACTION", "SYNC_ERROR"]
+                                            "END_GAME", "INVALID_ACTION", "SYNC_ERROR", "REQUEST_DECK"]
         self.cards = ["C02", "C03", "C04",
                       "D02", "D03", "D04",
                       "H02", "H03", "H04",
@@ -33,15 +33,18 @@ class Gameplay():
         splitted_input = user_input.split("!")
 
         if splitted_input[0].upper() == "CHAT":
-            # send everything as a chat message, except for the CHAT! command, 
+            # send everything as a chat message, except for the CHAT! command,
             # and replace original !-marks that were not used as a command marker
             result = "!".join(splitted_input[1::])
             return result
 
         if splitted_input[0].upper() == "DRAW_CARD":
-            # implement logic
-            self.logger.log_message("Drew card: ")
-            result = "card"
+            # todo: check if it's this player's turn
+            result = self.deck.pop(0)
+            self.add_points(result)
+            self.logger.log_message("Drew card: " + result)
+            result = "DRAW_CARD!"+result+"!"+str(len(self.deck))
+
             return result
 
         if splitted_input[0].upper() == "PASS_TURN":
@@ -82,15 +85,34 @@ class Gameplay():
 
     def handle_incoming_commands(self, datagram: str):
         """Handles input from the connected peers"""
+
+        resulting_commands = []
+
         splitted_command = datagram.split("!")
         self.logger.log_message("Handling command from peer: " + datagram, False)
 
         if splitted_command[0].upper() == "CREATE_DECK":
             self.create_deck(splitted_command[1::])
+            # todo in the final version: don't print the deck to the player
             self.logger.log_message("Deck created: " + str(self.deck))
 
         elif splitted_command[0].upper() == "DRAW_CARD":
-            self.logger.log_message("peer drew card")
+            # todo: check if peer can draw a card
+            self.logger.log_message("peer drew card: " + splitted_command[1])
+            self.logger.log_message("current length of peer's deck: " + splitted_command[2], False)
+
+            if int(splitted_command[2]) > len(self.deck):
+                resulting_commands.append("SYNC_ERROR!")
+
+            # finding the card that the peer drew and remove it and cards before it from the deck
+            # this requires every card to be unique
+            drawn_card_index = self.deck.index(splitted_command[1])
+            self.deck = self.deck[drawn_card_index+1:]
+
+            # if lengths of decks of peers are not the same size, something has gone wrong
+            if not splitted_command[2] == len(self.deck):
+                resulting_commands.append("SYNC_ERROR!")
+                resulting_commands.append("REQUEST_DECK")
 
         elif splitted_command[0].upper() == "PASS_TURN":
             self.logger.log_message("peer passed")
@@ -105,7 +127,14 @@ class Gameplay():
             self.logger.log_message("INVALID_ACTION")
 
         elif splitted_command[0].upper() == "SYNC_ERROR":
+            # todo, implement error messages
             self.logger.log_message("SYNC_ERROR")
+
+        elif splitted_command[0].upper() == "REQUEST_DECK":
+            self.logger.log_message("Peer requests deck values", False)
+            resulting_commands.append(self.send_deck())
+
+        return resulting_commands
 
     def send_deck(self):
         """Creates a deck-sending request"""
@@ -117,3 +146,6 @@ class Gameplay():
         result = result[:-1]
         self.logger.log_message("Created a deck importation request: " + result, False)
         return result
+
+    def add_points(self, card):
+        self.logger.log_message("Adding points worth of card: " + card)
