@@ -29,25 +29,28 @@ class Gameplay():
         result = ""
         splitted_input = user_input.split("!")
 
-        if splitted_input[0].upper() == "CHAT":
+        USER_INPUT = splitted_input[0].upper()
+
+        if USER_INPUT == "CHAT":
             result = splitted_input[1]
-        elif splitted_input[0].upper() == "DRAW_CARD":
-            # implement logic
-            self.logger.log_message("Drew card: ")
-            result = "card"
-        elif splitted_input[0].upper() == "PASS_TURN":
+        elif USER_INPUT == "DRAW_CARD":
+            drawn_card = self.deck.pop(0)
+            deck_size = len(self.deck)
+            self.logger.log_message(f"Drew card: {drawn_card}")
+            result = f"DRAW_CARD![{drawn_card}, {deck_size}]"
+        elif USER_INPUT == "PASS_TURN":
             # implement logic
             self.logger.log_message("Passed")
             result = "Passed"
-        elif splitted_input[0].upper() == "SEND_DECK":
+        elif USER_INPUT == "SEND_DECK":
             # implement logic
             self.logger.log_message("Sending deck creation request")
             result = "CREATE_DECK!" # + cards
-        elif splitted_input[0].upper() == "CLEAR_LOGS":
+        elif USER_INPUT == "CLEAR_LOGS":
             # developer command
             self.logger.clear_logs()
             result = "developer command"
-        elif splitted_input[0].upper() == "PRINT_DECK":
+        elif USER_INPUT == "PRINT_DECK":
             # developer command
             self.logger.log_message(str(self.deck))
             result = "developer command"
@@ -56,22 +59,27 @@ class Gameplay():
 
         return result
 
-    def handle_incoming_commands(self, incoming_command: str):
+    def handle_incoming_commands(self, incoming_command: str, addr: str):
         self.logger.log_message("Received command from peer: " + incoming_command, False)
 
-        if incoming_command[0].upper() == "CREATE_DECK":
-            for card in incoming_command[1::]:
+        split_incoming_message = incoming_command.split("!")
+
+        COMMAND = split_incoming_message[0].upper()
+        PAYLOAD = split_incoming_message[1].upper()
+
+        if COMMAND == "CREATE_DECK":
+            for card in PAYLOAD[1::]:
                 self.deck.append(card)
             self.logger.log_message("Deck created")
-        elif incoming_command[0].upper() == "DRAW_CARD":
-            self.logger.log_message("peer drew card")
-        elif incoming_command[0].upper() == "PASS_TURN":
+        elif COMMAND == "DRAW_CARD":
+            self.logger.log_message(f"Message from: " + str(addr) + ": " + "Player drew a card: " + PAYLOAD)
+        elif COMMAND == "PASS_TURN":
             self.logger.log_message("peer passed")
-        elif incoming_command[0].upper() == "START_GAME":
+        elif COMMAND == "START_GAME":
             self.logger.log_message("game started")
-        elif incoming_command[0].upper() == "END_GAME":
+        elif COMMAND == "END_GAME":
             self.logger.log_message("game ended")
-        elif incoming_command[0].upper() == "INVALID_ACTION":
+        elif COMMAND== "INVALID_ACTION":
             self.logger.log_message("INVALID_ACTION")
-        elif incoming_command[0].upper() == "SYNC_ERROR":
+        elif COMMAND == "SYNC_ERROR":
             self.logger.log_message("SYNC_ERROR")

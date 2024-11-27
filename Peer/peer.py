@@ -75,7 +75,7 @@ class Peer(DatagramProtocol):
             if splitted_command[0].upper() in self.gameplay.supported_incoming_commands:
                 self.logger.log_message("Command from: "
                                         + str(addr) + ": " + splitted_command[0], False)
-                self.gameplay.handle_incoming_commands(datagram)
+                self.gameplay.handle_incoming_commands(datagram, str(addr))
             else:
                 self.logger.log_message("Message from: " + str(addr) + ": " + datagram)
                 self.logger.log_message("Type a command: ")
