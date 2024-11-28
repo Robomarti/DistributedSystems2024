@@ -70,7 +70,7 @@ class Gameplay:
         return "!".join(splitted_input[1:])
 
     def draw_card_input(self) -> str:
-        """Processes draw card input."""
+        """Processes DRAW_CARD! input."""
         if not self.is_game_initiated():
             self.logger.log_message("The game has not been initiated yet!")
             return ""
@@ -105,7 +105,7 @@ class Gameplay:
         return "PASS_TURN!"
 
     def initiate_game_input(self) -> List[str]:
-        """Processes initiate game input - this can only be done by the leading player."""
+        """Processes INITIATE_GAME! input - this can only be done by the leading player."""
         if not self.deck_host_and_first_player:
             self.logger.log_message("You are not the first player; you cannot initiate the game")
             return []
