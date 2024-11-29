@@ -2,8 +2,7 @@
  
 ## Set up guide:
 
-
-Please use the latest release version on your reviews and issues. The documentation in here is the most up to date, so please use the documentation on this github.
+IGNORE these for the time being, we don't use virtualenv or invokes yet
 
 
 If you are using Unix-style operating system, you might have to replace all the "python" parts of the invoke commands to "python3" in the tasks.py file.

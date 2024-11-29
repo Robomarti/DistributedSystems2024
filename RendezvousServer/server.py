@@ -1,9 +1,10 @@
-"used this video: https://www.youtube.com/watch?v=1Fay1pjttLg"
+# used this video: https://www.youtube.com/watch?v=1Fay1pjttLg as basis
 
 from twisted.internet.protocol import DatagramProtocol
 from twisted.internet import reactor
 
 class Server(DatagramProtocol):
+    """Handles peers finding each other"""
     def __init__(self):
         self.clients = set()
 
@@ -12,7 +13,9 @@ class Server(DatagramProtocol):
         if datagram == "ready":
             # Send back list of addresses of every connected peer
             adresses = "!".join([str(x) for x in self.clients])
-            self.transport.write(adresses.encode("utf-8"), addr)
+            player_order_number = len(self.clients)
+            message = "PLAYER_ORDER!"+str(player_order_number)+"!"+adresses
+            self.transport.write(message.encode("utf-8"), addr)
 
             # send connections to connected peers about new connection
             for peer_adress in self.clients:
