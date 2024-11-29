@@ -1,19 +1,18 @@
 import random
-from logger import Logger
 from typing import List, Tuple, Optional
+from logger import Logger
 
 class Gameplay:
     """Handles all gameplay-related tasks."""
 
-    def __init__(self, logger: Logger, addresses: List[Tuple[str, int]], player_id: Tuple[str, int]):
+    def __init__(self, logger: Logger, player_id: Tuple[str, int]):
         self.deck: List[str] = []
         self.logger = logger
-        self.addresses = addresses
         self.player_id = player_id
-        self.turn_order: List[Tuple[str, int]] = []
-        self.turn_index = 0
+        self.current_turn = -1
+        self.own_turn_identifier = -1
         self.points = 0
-        self.deck_host_and_first_player = False
+        self.connected_peers = 0
 
         self.supported_incoming_commands = [
             "CREATE_DECK", "DRAW_CARD", "START_GAME",
@@ -43,22 +42,22 @@ class Gameplay:
         # splitted_input splits the input message by question mark
         # e.g. DRAW_CARD!D2!11 -> ["DRAW_CARD", "D2", "11"]
         splitted_input = user_input.split("!")
-        input = splitted_input[0].upper()
+        upper_input = splitted_input[0].upper()
 
-        if input == "CHAT":
+        if upper_input == "CHAT":
             return self.chat_input(splitted_input)
-        elif input == "DRAW_CARD":
+        elif upper_input == "DRAW_CARD":
             return self.draw_card_input()
-        elif input == "PASS_TURN":
+        elif upper_input == "PASS_TURN":
             return self.pass_turn_input()
-        elif input == "INITIATE_GAME":
+        elif upper_input == "INITIATE_GAME":
             return self.initiate_game_input()
-        elif input == "SEND_DECK":
+        elif upper_input == "SEND_DECK":
             return self.send_deck()
-        elif input == "CLEAR_LOGS":
+        elif upper_input == "CLEAR_LOGS":
             self.logger.clear_logs()
             return "developer command"
-        elif input == "PRINT_DECK":
+        elif upper_input == "PRINT_DECK":
             self.logger.log_message(str(self.deck))
             return "developer command"
         else:
@@ -106,16 +105,15 @@ class Gameplay:
 
     def initiate_game_input(self) -> List[str]:
         """Processes INITIATE_GAME! input - this can only be done by the leading player."""
-        if not self.deck_host_and_first_player:
+        if self.own_turn_identifier != 0:
             self.logger.log_message("You are not the first player; you cannot initiate the game")
             return []
 
+        self.current_turn = 0
         self.create_deck()
         self.logger.log_message(f"Deck host created deck: {self.deck}", print_message=False)
-        self.turn_order = [self.player_id] + [addr for addr in self.addresses if addr != self.player_id]
-        turn_order_message = self.send_turn_order()
         deck_message = self.send_deck()
-        return [turn_order_message, deck_message]
+        return [deck_message]
 
     def handle_incoming_commands(self, datagram: str) -> List[str]:
         """Handles the commands sent to connected peers (players)."""
@@ -127,8 +125,6 @@ class Gameplay:
 
         if command == "CREATE_DECK":
             self.create_deck_command(splitted_command)
-        elif command == "TURN_ORDER":
-            self.turn_order_command(splitted_command)
         elif command == "DRAW_CARD":
             resulting_commands.extend(self.draw_card_command(splitted_command))
         elif command == "PASS_TURN":
@@ -149,19 +145,13 @@ class Gameplay:
         return resulting_commands
 
     def create_deck_command(self, splitted_command: List[str]):
-        """Processes CREATE_DECK! command."""
+        """Processes CREATE_DECK! command. \n
+        Also initializes the game if game has not been started yet"""
         deck_values = splitted_command[1:]
         self.create_deck(deck_values)
         self.logger.log_message(f"Deck created: {self.deck}", print_message=False)
-
-    def turn_order_command(self, splitted_command: List[str]):
-        """Processes TURN_ORDER! command."""
-        self.turn_order = [
-            tuple(player_str.split(":")) for player_str in splitted_command[1:]
-        ]
-        self.turn_order = [(host, int(port)) for host, port in self.turn_order]
-        self.logger.log_message(f"Updated turn order: {self.turn_order}")
-        self.turn_index = 0
+        if self.current_turn == -1:
+            self.current_turn = 0
 
     def draw_card_command(self, splitted_command: List[str]) -> List[str]:
         """Processes DRAW_CARD! command."""
@@ -191,20 +181,18 @@ class Gameplay:
 
     def is_my_turn(self) -> bool:
         """Checks if it's the player's turn"""
-        if not self.turn_order:
-            return False
-        current_player = self.turn_order[self.turn_index]
-        return current_player == self.player_id
+        return self.current_turn == self.own_turn_identifier
 
     def is_game_initiated(self) -> bool:
         """Checks if the game has been initiated."""
-        return bool(self.turn_order)
+        return bool(self.current_turn > -1)
 
     def advance_player_turn(self):
         """Advances the player's turn - should be called locally and remotely"""
-        self.turn_index = (self.turn_index + 1) % len(self.turn_order)
-        next_player = self.turn_order[self.turn_index]
-        if next_player == self.player_id:
+        self.current_turn += 1
+        if self.current_turn > self.connected_peers:
+            self.current_turn = 0
+        if self.current_turn == self.own_turn_identifier:
             self.logger.log_message("It's now your turn!")
 
     def send_deck(self) -> str:
@@ -213,19 +201,18 @@ class Gameplay:
         self.logger.log_message(f"Created a deck importation request: {deck_message}", print_message=False)
         return deck_message
 
-    def send_turn_order(self) -> str:
-        """Creates a TURN_ORDER! message to send to peers."""
-        turn_order_str = "!".join(f"{player[0]}:{player[1]}" for player in self.turn_order)
-        turn_order_message = f"TURN_ORDER!{turn_order_str}"
-        self.logger.log_message(f"Created TURN_ORDER message: {turn_order_message}", print_message=False)
-        return turn_order_message
-
     def add_points(self, card: str):
         """Adds points to player's total point value based on the value of the drawn card."""
         card_value = int(card[1:])
         self.points += card_value
         self.logger.log_message(f"Added {card_value} points for card: {card}. Your point total: {self.points}")
 
-    def update_addresses(self, addresses: List[Tuple[str, int]]):
-        """Updates the list of player addresses."""
-        self.addresses = addresses
+    def update_order_number(self, order_number: str):
+        """Update own turn identifier"""
+        self.own_turn_identifier = int(order_number)
+        self.logger.log_message("own_turn_identifier: " + order_number, False)
+
+    def increment_connected_peers_count(self):
+        """Increment value to know which player is the last"""
+        self.connected_peers += 1
+        self.logger.log_message("connected_peers: " + str(self.connected_peers), False)

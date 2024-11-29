@@ -14,7 +14,7 @@ class Peer(DatagramProtocol):
         self.server = ("127.0.0.1", 9999)
         self.send_message_thread_active = False
         self.logger = Logger(self.id)
-        self.gameplay = Gameplay(self.logger, self.addresses, self.id)
+        self.gameplay = Gameplay(self.logger, self.id)
 
         self.logger.log_message("Own address: " + str(self.id), print_message=False)
 
@@ -50,9 +50,23 @@ class Peer(DatagramProtocol):
     def handle_datagram_from_server(self, datagram: str):
         """Handles messages from the rendezvous server"""
         datagram_data = datagram.split("!")
-        self.logger.log_message("You are being connected to peers.")
+        if datagram_data[0] == "PLAYER_ORDER":
+            # This peer has joined, and peer_addresses contains addresses of all peers
 
-        peer_addresses = datagram_data
+            player_order_number = datagram_data[1]
+            self.gameplay.update_order_number(player_order_number)
+            peer_addresses = datagram_data[2:]
+        else:
+            # A new peer has joined, and this peer receives only the new peer's address in peer_addresses
+            peer_addresses = datagram_data
+
+        if not peer_addresses[0]:
+            # peer_addresses[0] is '' and peer_addresses[1] does not exist
+            # for first connected peer, which would break
+            # peer_address = (address_port[0], int(address_port[1])) in the for loop
+            return
+            
+        self.logger.log_message("You are being connected to peers.")
         for address in peer_addresses:
             # remove parentheses, spaces and quotes for editing
             address = address.replace("(", "").replace(")", "").replace(" ", "").replace("'", "").replace('"', "")
@@ -61,9 +75,10 @@ class Peer(DatagramProtocol):
             self.logger.log_message("Connecting to " + str(peer_address), print_message=False)
             if peer_address not in self.addresses and peer_address != self.id:
                 self.addresses.append(peer_address)
-
-        self.gameplay.update_addresses(self.addresses)
-
+                self.gameplay.increment_connected_peers_count()
+        
+        # If this is called here, the first player can't issue commands
+        # until at least 1 other peer is connected
         if not self.send_message_thread_active:
             reactor.callInThread(self.send_message)
             self.send_message_thread_active = True
