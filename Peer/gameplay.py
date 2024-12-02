@@ -6,26 +6,33 @@ class Gameplay:
     """Handles all gameplay-related tasks."""
 
     def __init__(self, logger: Logger, player_id: Tuple[str, int]):
-        self.deck: List[str] = []
         self.logger = logger
         self.player_id = player_id
-        self.current_turn = -1
+        self.connected_peers = 0
+        self.deck: List[str] = []
+        self.current_turn = -1 # current_turn is -1 to mark that the game is not active yet
         self.own_turn_identifier = -1
         self.points = 0
-        self.connected_peers = 0
+        self.passed = False
 
         self.supported_incoming_commands = [
             "CREATE_DECK", "DRAW_CARD", "START_GAME",
             "PASS_TURN", "END_GAME", "INVALID_ACTION",
             "SYNC_ERROR", "REQUEST_DECK", "TURN_ORDER"
         ]
-
         self.cards = [
             "C02", "C03", "C04", "C05", "C06", "C07", "C08", "C09", "C10", "C11", "C12", "C13", "C14",  # Clubs
             "D02", "D03", "D04", "D05", "D06", "D07", "D08", "D09", "D10", "D11", "D12", "D13", "D14",  # Diamonds
             "H02", "H03", "H04", "H05", "H06", "H07", "H08", "H09", "H10", "H11", "H12", "H13", "H14",  # Hearts
             "S02", "S03", "S04", "S05", "S06", "S07", "S08", "S09", "S10", "S11", "S12", "S13", "S14"   # Spades
         ]
+
+    def reset_gameplay_variables(self):
+        """Reset variables for next game"""
+        self.deck: List[str] = []
+        self.current_turn = -1
+        self.points = 0
+        self.passed = False
 
     def create_deck(self, deck_values: Optional[List[str]] = None):
         """Handles creating or importing the deck"""
@@ -53,6 +60,8 @@ class Gameplay:
         elif upper_input == "INITIATE_GAME":
             return self.initiate_game_input()
         elif upper_input == "SEND_DECK":
+            # This is a developer command as well, players should not
+            # need this and thus should not have access this in the final build
             return self.send_deck()
         elif upper_input == "CLEAR_LOGS":
             self.logger.clear_logs()
@@ -100,6 +109,7 @@ class Gameplay:
             return "It's not your turn!"
 
         self.logger.log_message("Passed")
+        self.passed = True
         self.advance_player_turn()
         return "PASS_TURN!"
 
@@ -132,7 +142,7 @@ class Gameplay:
         elif command == "START_GAME":
             self.logger.log_message("Game started")
         elif command == "END_GAME":
-            self.logger.log_message("Game ended")
+            self.end_game()
         elif command == "INVALID_ACTION":
             self.logger.log_message("Invalid action")
         elif command == "SYNC_ERROR":
@@ -141,6 +151,10 @@ class Gameplay:
         elif command == "REQUEST_DECK":
             self.logger.log_message("Peer requests deck values", print_message=False)
             resulting_commands.append(self.send_deck())
+
+        if self.is_my_turn() and self.passed:
+            self.logger.log_message("Automatically passed.")
+            resulting_commands.append("PASS_TURN!")
 
         return resulting_commands
 
@@ -192,7 +206,7 @@ class Gameplay:
         self.current_turn += 1
         if self.current_turn > self.connected_peers:
             self.current_turn = 0
-        if self.current_turn == self.own_turn_identifier:
+        if self.is_my_turn():
             self.logger.log_message("It's now your turn!")
 
     def send_deck(self) -> str:
@@ -206,6 +220,9 @@ class Gameplay:
         card_value = int(card[1:])
         self.points += card_value
         self.logger.log_message(f"Added {card_value} points for card: {card}. Your point total: {self.points}")
+        if self.points > 21:
+            self.passed = True
+            self.logger.log_message("Points went over 21, you lost this game and automatically passed for the rest of the game.")
 
     def update_order_number(self, order_number: str):
         """Update own turn identifier"""
@@ -216,3 +233,10 @@ class Gameplay:
         """Increment value to know which player is the last"""
         self.connected_peers += 1
         self.logger.log_message("connected_peers: " + str(self.connected_peers), False)
+
+    def end_game(self):
+        """Ends the game"""
+        self.logger.log_message("Ending the game, calculating winner...")
+        # todo: add functionality
+        self.logger.log_message("Game ended, ready for a new game.")
+        self.reset_gameplay_variables()
