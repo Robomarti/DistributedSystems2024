@@ -85,11 +85,11 @@ class Gameplay:
 
         if not self.is_my_turn():
             self.logger.log_message("It's not your turn!")
-            return "It's not your turn!"
+            return ""
 
         if not self.deck:
             self.logger.log_message("The deck is empty!")
-            return "The deck is empty!"
+            return ""
 
         card_drawn = self.deck.pop(0)
         self.add_points(card_drawn)
