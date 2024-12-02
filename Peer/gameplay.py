@@ -65,10 +65,10 @@ class Gameplay:
             return self.send_deck()
         elif upper_input == "CLEAR_LOGS":
             self.logger.clear_logs()
-            return "developer command"
+            return "dont-send"
         elif upper_input == "PRINT_DECK":
             self.logger.log_message(str(self.deck))
-            return "developer command"
+            return "dont-send"
         else:
             self.logger.log_message("Unsupported user input: " + user_input, print_message=False)
             return ""
@@ -81,19 +81,18 @@ class Gameplay:
         """Processes DRAW_CARD! input."""
         if not self.is_game_initiated():
             self.logger.log_message("The game has not been initiated yet!")
-            return ""
+            return "dont-send"
 
         if not self.is_my_turn():
             self.logger.log_message("It's not your turn!")
-            return ""
+            return "dont-send"
 
         if not self.deck:
             self.logger.log_message("The deck is empty!")
-            return ""
+            return "dont-send"
 
         card_drawn = self.deck.pop(0)
         self.add_points(card_drawn)
-        self.logger.log_message(f"Drew card: {card_drawn}")
         result_message = f"DRAW_CARD!{card_drawn}!{len(self.deck)}"
         self.advance_player_turn()
         return result_message
@@ -102,11 +101,11 @@ class Gameplay:
         """Processes PASS_TURN! input."""
         if not self.is_game_initiated():
             self.logger.log_message("The game has not been initiated yet!", print_message=False)
-            return ""
+            return "dont-send"
 
         if not self.is_my_turn():
             self.logger.log_message("It's not your turn!")
-            return "It's not your turn!"
+            return "dont-send"
 
         self.logger.log_message("Passed")
         self.passed = True
