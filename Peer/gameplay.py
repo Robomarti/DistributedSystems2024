@@ -12,7 +12,7 @@ class Gameplay:
         self.deck: List[str] = []
         self.current_turn = -1 # current_turn is -1 to mark that the game is not active yet
         self.own_turn_identifier = -1
-        self.points = 0
+        self.points = {}
         self.passed = False
 
         self.supported_incoming_commands = [
@@ -31,7 +31,7 @@ class Gameplay:
         """Reset variables for next game"""
         self.deck: List[str] = []
         self.current_turn = -1
-        self.points = 0
+        self.points = {}
         self.passed = False
 
     def create_deck(self, deck_values: Optional[List[str]] = None):
@@ -69,6 +69,8 @@ class Gameplay:
         elif upper_input == "PRINT_DECK":
             self.logger.log_message(str(self.deck))
             return "dont-send"
+        elif upper_input == "END_GAME":
+            return self.end_game()
         else:
             self.logger.log_message("Unsupported user input: " + user_input, print_message=False)
             return ""
@@ -92,7 +94,7 @@ class Gameplay:
             return "dont-send"
 
         card_drawn = self.deck.pop(0)
-        self.add_points(card_drawn)
+        self.add_points(card_drawn, True)
         result_message = f"DRAW_CARD!{card_drawn}!{len(self.deck)}"
         self.advance_player_turn()
         return result_message
@@ -154,6 +156,7 @@ class Gameplay:
         if self.is_my_turn() and self.passed:
             self.logger.log_message("Automatically passed.")
             resulting_commands.append("PASS_TURN!")
+            self.advance_player_turn()
 
         return resulting_commands
 
@@ -172,6 +175,8 @@ class Gameplay:
         card_drawn = splitted_command[1]
         deck_length = int(splitted_command[2])
         self.logger.log_message(f"Peer drew card: {card_drawn}")
+        self.add_points(card_drawn, False)
+
         self.logger.log_message(f"Current length of peer's deck: {deck_length}", print_message=False)
 
         if card_drawn in self.deck:
@@ -207,6 +212,7 @@ class Gameplay:
             self.current_turn = 0
         if self.is_my_turn():
             self.logger.log_message("It's now your turn!")
+        self.logger.log_message(str(self.current_turn) + "th player's turn", False)
 
     def send_deck(self) -> str:
         """Creates a CREATE_DECK! request, send deck data to the peers."""
@@ -214,14 +220,25 @@ class Gameplay:
         self.logger.log_message(f"Created a deck importation request: {deck_message}", print_message=False)
         return deck_message
 
-    def add_points(self, card: str):
+    def add_points(self, card: str, this_peer: bool):
         """Adds points to player's total point value based on the value of the drawn card."""
         card_value = int(card[1:])
-        self.points += card_value
-        self.logger.log_message(f"Added {card_value} points for card: {card}. Your point total: {self.points}")
-        if self.points > 21:
-            self.passed = True
-            self.logger.log_message("Points went over 21, you lost this game and automatically passed for the rest of the game.")
+
+        # initialize missing peer key
+        if not self.current_turn in self.points:
+            self.points[self.current_turn] = 0
+            self.logger.log_message("Initialized points key for peer " + str(self.current_turn), False)
+
+        self.points[self.current_turn] += card_value
+        self.logger.log_message("Updated points: " + str(self.points), False)
+
+        if this_peer:
+            self.logger.log_message(f"Added {card_value} points for card: {card}. Your point total: {self.points[self.current_turn]}")
+            if self.points[self.current_turn] > 21:
+                self.passed = True
+                self.logger.log_message("Points went over 21, you lost this game and automatically passed for the rest of the game.")
+        else:
+            self.logger.log_message(f"Added {card_value} points for card: {card}. Peer's point total: {self.points[self.current_turn]}")
 
     def update_order_number(self, order_number: str):
         """Update own turn identifier"""
@@ -236,6 +253,14 @@ class Gameplay:
     def end_game(self):
         """Ends the game"""
         self.logger.log_message("Ending the game, calculating winner...")
-        # todo: add functionality
+        self.decide_winner()
         self.logger.log_message("Game ended, ready for a new game.")
         self.reset_gameplay_variables()
+
+        # return value is only used during development
+        return "END_GAME!"
+
+    def decide_winner(self):
+        """Calculate which player won"""
+        key_for_most_points = max(self.points, key= lambda x: self.points[x])
+        self.logger.log_message("Player " + str(key_for_most_points) + " won!")
