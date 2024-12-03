@@ -13,7 +13,8 @@ class Gameplay:
         self.current_turn = -1 # current_turn is -1 to mark that the game is not active yet
         self.own_turn_identifier = -1
         self.points = {}
-        self.passed = False
+        self.passes = {}
+        self.losers: List[int] = [] # this is used if someone's point count goes over 21
 
         self.supported_incoming_commands = [
             "CREATE_DECK", "DRAW_CARD", "START_GAME",
@@ -32,7 +33,8 @@ class Gameplay:
         self.deck: List[str] = []
         self.current_turn = -1
         self.points = {}
-        self.passed = False
+        self.passes = {}
+        self.losers: List[int] = []
 
     def create_deck(self, deck_values: Optional[List[str]] = None):
         """Handles creating or importing the deck"""
@@ -58,6 +60,7 @@ class Gameplay:
         elif upper_input == "PASS_TURN":
             return self.pass_turn_input()
         elif upper_input == "INITIATE_GAME":
+            self.initialize_passes()
             return self.initiate_game_input()
         elif upper_input == "SEND_DECK":
             # This is a developer command as well, players should not
@@ -69,7 +72,11 @@ class Gameplay:
         elif upper_input == "PRINT_DECK":
             self.logger.log_message(str(self.deck))
             return "dont-send"
+        elif upper_input == "PRINT_PASSES":
+            self.logger.log_message(str(self.passes))
+            return "dont-send"
         elif upper_input == "END_GAME":
+            # developer command, should be deleted
             return self.end_game()
         else:
             self.logger.log_message("Unsupported user input: " + user_input, print_message=False)
@@ -110,7 +117,7 @@ class Gameplay:
             return "dont-send"
 
         self.logger.log_message("Passed")
-        self.passed = True
+        self.passes[self.current_turn] = True
         self.advance_player_turn()
         return "PASS_TURN!"
 
@@ -135,6 +142,8 @@ class Gameplay:
         self.logger.log_message(f"Handling command from peer: {datagram}", print_message=False)
 
         if command == "CREATE_DECK":
+            # incoming CREATE_DECK command is the same as starting the game
+            self.initialize_passes()
             self.create_deck_command(splitted_command)
         elif command == "DRAW_CARD":
             resulting_commands.extend(self.draw_card_command(splitted_command))
@@ -142,8 +151,6 @@ class Gameplay:
             self.pass_turn_command()
         elif command == "START_GAME":
             self.logger.log_message("Game started")
-        elif command == "END_GAME":
-            self.end_game()
         elif command == "INVALID_ACTION":
             self.logger.log_message("Invalid action")
         elif command == "SYNC_ERROR":
@@ -152,8 +159,17 @@ class Gameplay:
         elif command == "REQUEST_DECK":
             self.logger.log_message("Peer requests deck values", print_message=False)
             resulting_commands.append(self.send_deck())
+        elif command == "END_GAME":
+            self.end_game()
+            # return early so the peer doesn't send another end game command
+            return []
 
-        if self.is_my_turn() and self.passed:
+        if self.has_everyone_passed():
+            # stop the game and only send the end game command
+            self.end_game()
+            return ["END_GAME!"]
+
+        if self.is_my_turn() and self.has_current_turn_passed():
             self.logger.log_message("Automatically passed.")
             resulting_commands.append("PASS_TURN!")
             self.advance_player_turn()
@@ -195,7 +211,12 @@ class Gameplay:
     def pass_turn_command(self):
         """Processes PASS_TURN! command."""
         self.logger.log_message("Peer passed their turn")
+        self.passes[self.current_turn] = True
         self.advance_player_turn()
+
+    def has_current_turn_passed(self):
+        """Checks if the player whose turn it is has passed."""
+        return self.passes[self.current_turn]
 
     def is_my_turn(self) -> bool:
         """Checks if it's the player's turn"""
@@ -234,11 +255,16 @@ class Gameplay:
 
         if this_peer:
             self.logger.log_message(f"Added {card_value} points for card: {card}. Your point total: {self.points[self.current_turn]}")
-            if self.points[self.current_turn] > 21:
-                self.passed = True
-                self.logger.log_message("Points went over 21, you lost this game and automatically passed for the rest of the game.")
         else:
             self.logger.log_message(f"Added {card_value} points for card: {card}. Peer's point total: {self.points[self.current_turn]}")
+
+        if self.points[self.current_turn] > 21:
+            self.passes[self.current_turn] = True
+            self.losers.append(self.current_turn)
+            if this_peer:
+                self.logger.log_message("Points went over 21, you lost this game and automatically passed for the rest of the game.")
+            else:
+                self.logger.log_message("Points of a peer went over 21, they lost this game and automatically passed for the rest of the game.")
 
     def update_order_number(self, order_number: str):
         """Update own turn identifier"""
@@ -262,5 +288,21 @@ class Gameplay:
 
     def decide_winner(self):
         """Calculate which player won"""
+        for i in self.losers:
+            self.points[i] = 0
         key_for_most_points = max(self.points, key= lambda x: self.points[x])
         self.logger.log_message("Player " + str(key_for_most_points) + " won!")
+
+    def has_everyone_passed(self):
+        """Checks if everyone has passed"""
+        self.logger.log_message("Checking if everyone has passed: " + str(self.passes), False)
+        return all(value is True for value in self.passes.values())
+
+    def initialize_passes(self):
+        """Adds all uninitialized pass values"""
+        self.logger.log_message("Initializing self.passes", False)
+        # +1 in range to iniate this peer as well
+        for i in range(self.connected_peers+1):
+            if not i in self.passes:
+                self.passes[i] = False
+        self.logger.log_message("Completed self.passes: " + str(self.passes), False)
