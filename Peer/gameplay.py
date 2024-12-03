@@ -258,10 +258,10 @@ class Gameplay:
             else:
                 self.logger.log_message("Points of a peer went over 21, they lost this game and automatically passed for the rest of the game.")
 
-    def update_order_number(self, order_number: str):
+    def update_order_number(self, order_number):
         """Update own turn identifier"""
         self.own_turn_identifier = int(order_number)
-        self.logger.log_message("own_turn_identifier: " + order_number, False)
+        self.logger.log_message("own_turn_identifier: " + str(order_number), False)
 
     def increment_connected_peers_count(self):
         """Increment value to know which player is the last"""
