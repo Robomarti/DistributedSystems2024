@@ -34,7 +34,7 @@ class Peer(DatagramProtocol):
             if not message_to_send:
                 self.logger.log_message("Unsupported command")
                 continue
-            elif message_to_send == "developer command":
+            elif message_to_send == "dont-send":
                 continue
 
             if not isinstance(message_to_send, list):
@@ -96,15 +96,18 @@ class Peer(DatagramProtocol):
             # a peer has sent something
             splitted_command = datagram.split("!")
             if splitted_command[0].upper() in self.gameplay.supported_incoming_commands:
+                # peer sent a command
                 self.logger.log_message("Command from: "
                                         + str(addr) + ": " + splitted_command[0], False)
-                if self.gameplay.handle_incoming_commands(datagram):
+                messages_to_send = self.gameplay.handle_incoming_commands(datagram)
+                if messages_to_send:
                     if not isinstance(messages_to_send, list):
                         messages_to_send = [messages_to_send]
                     for message in messages_to_send:
                         for peer_address in self.addresses:
                             self.transport.write(message.encode('utf-8'), peer_address)
             else:
+                # peer sent a chat message
                 self.logger.log_message("Message from: " + str(addr) + ": " + datagram)
                 self.logger.log_message("Type a command: ")
 
