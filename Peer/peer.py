@@ -1,11 +1,11 @@
+import random
+import socket
+import os
 from twisted.internet.protocol import DatagramProtocol
 from twisted.internet import reactor
 from gameplay import Gameplay
 from logger import Logger
-import random
-import socket
-import time
-import os
+from heartbeat import HeartbeatManager
 
 class Peer(DatagramProtocol):
     """Handles message sending and receiving"""
@@ -19,12 +19,16 @@ class Peer(DatagramProtocol):
         self.send_message_thread_active = False
         self.logger = Logger(self.id)
         self.gameplay = Gameplay(self.logger, self.id)
+        self.heartbeat_manager = HeartbeatManager(self)
 
         self.logger.log_message("Own address: " + str(self.id), print_message=False)
 
     def startProtocol(self):
         """Send a message to the server to get connected to other peers"""
         self.send_message1("ready", self.server)
+
+    def stopProtocol(self):
+        self.heartbeat_manager.stop()
 
     def send_message1(self, message, target_addr):
         """send message to target_addr"""
@@ -38,8 +42,6 @@ class Peer(DatagramProtocol):
             self.logger.log_message(f"Broadcast message: {message}", print_message=True)
         except Exception as e:
             self.logger.log_message(f"Error broadcasting message: {e}", print_message=True)
-
-
 
     def send_message(self):
         """Handles gathering user input and sending messages to connected peers"""
@@ -80,6 +82,18 @@ class Peer(DatagramProtocol):
         try:
             splitted_command = datagram.split("!")
 
+            if splitted_command[0] == "HEARTBEAT":
+                self.heartbeat_manager.record_heartbeat(addr)
+                return
+
+            if splitted_command[0] == "PEER_DISCONNECTED":
+                disconnected_ip = splitted_command[1]
+                disconnected_port = int(splitted_command[2])
+                disconnected_peer = (disconnected_ip, disconnected_port)
+                if disconnected_peer in self.addresses:
+                    self.addresses.remove(disconnected_peer)
+                return
+
             if splitted_command[0].upper() in self.gameplay.supported_incoming_commands:
                 self.logger.log_message(f"Command from {addr}: {splitted_command[0]}", False)
 
@@ -107,12 +121,13 @@ class Peer(DatagramProtocol):
 
         if datagram_data[0] == "NEW_CLIENT":
             self.handle_new_client(datagram_data)
-        
+
         # If this is called here, the first player can't issue commands
         # until at least 1 other peer is connected
         if not self.send_message_thread_active and self.addresses:
             reactor.callInThread(self.send_message)
             self.send_message_thread_active = True
+            self.heartbeat_manager.start()
 
     def handle_player_order(self, datagram_data):
         """Handles the player order message from the server"""
