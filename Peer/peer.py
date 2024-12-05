@@ -6,6 +6,7 @@ from twisted.internet import reactor
 from gameplay import Gameplay
 from logger import Logger
 from heartbeat import HeartbeatManager
+from collections import OrderedDict
 
 class Peer(DatagramProtocol):
     """Handles message sending and receiving"""
@@ -14,7 +15,8 @@ class Peer(DatagramProtocol):
             host = "127.0.0.1"
 
         self.id = (host, own_port)
-        self.addresses = []
+        self.addresses = OrderedDict()
+        self.all_addresses = OrderedDict()
         self.server = ("127.0.0.1", 9999)
         self.send_message_thread_active = False
         self.logger = Logger(self.id)
@@ -37,7 +39,7 @@ class Peer(DatagramProtocol):
     def broadcast(self, message: str):
         """Broadcasts a message to all connected peers"""
         try:
-            for peer_address in self.addresses:
+            for peer_address in self.addresses.keys():
                 self.transport.write(message.encode("utf-8"), peer_address)
             self.logger.log_message(f"Broadcast message: {message}", print_message=True)
         except Exception as e:
@@ -76,10 +78,10 @@ class Peer(DatagramProtocol):
         if addr == self.server:
             self.handle_datagram_from_server(datagram)
         else:
-            self.handle_datagram_from_peer(datagram, addr)
+            self.handle_other_datagrams(datagram, addr)
 
-    def handle_datagram_from_peer(self, datagram: str, addr):
-        """Handles messages from other peers"""
+    def handle_other_datagrams(self, datagram: str, addr):
+        """Handles messages from other peers and heartbeat manager"""
         try:
             splitted_command = datagram.split("!")
 
@@ -88,11 +90,11 @@ class Peer(DatagramProtocol):
                 return
 
             if splitted_command[0] == "PEER_DISCONNECTED":
-                disconnected_ip = splitted_command[1]
-                disconnected_port = int(splitted_command[2])
-                disconnected_peer = (disconnected_ip, disconnected_port)
-                if disconnected_peer in self.addresses:
-                    self.addresses.remove(disconnected_peer)
+                try:
+                    disconnected_peer = (splitted_command[1], int(splitted_command[2]))
+                    self.handle_peer_disconnection(disconnected_peer)
+                except Exception as e:
+                    self.logger.log_message(f"Error processing PEER_DISCONNECTED: {str(e)}", True)
                 return
 
             if splitted_command[0].upper() in self.gameplay.supported_incoming_commands:
@@ -113,7 +115,6 @@ class Peer(DatagramProtocol):
         except Exception as e:
             self.logger.log_message(f"Error handling datagram from {addr}: {e}", print_message=True)
 
-
     def handle_datagram_from_server(self, datagram: str):
         """Handles messages from the rendezvous server"""
         datagram_data = datagram.split("!")
@@ -133,12 +134,15 @@ class Peer(DatagramProtocol):
     def handle_player_order(self, datagram_data):
         """Handles the player order message from the server"""
         try:
-            self.player_order_number = int(datagram_data[1]) 
+            self.player_order_number = int(datagram_data[1])
 
             if self.player_order_number == 1:
                 self.logger.log_message("You are the first player online, waiting for connections")
 
-            self.gameplay.update_order_number(self.player_order_number - 1)
+            if self.gameplay.own_turn_identifier == -1:
+                self.gameplay.update_order_number(self.player_order_number - 1)
+
+            self.logger.log_message(f"PLAYER ORDER NUMBER {self.player_order_number}")
 
             peer_list = datagram_data[2:]
             for peer in peer_list:
@@ -149,10 +153,13 @@ class Peer(DatagramProtocol):
                 except ValueError as e:
                     self.logger.log_message(f"Error parsing peer address {peer}: {e}", print_message=True)
 
-            print(f"Connected peers: {self.addresses}")
+            if self.id not in self.all_addresses:
+                self.all_addresses[self.id] = None
+
+            print(f"Connected peers: {list(self.addresses.keys())}")
+            print(f"All peers: {list(self.all_addresses.keys())}")
         except (IndexError, ValueError) as e:
             self.logger.log_message(f"Error processing player order message: {e}", print_message=True)
-            self.player_order_number = int(datagram_data[1])
 
     def handle_new_client(self, datagram_data):
         """Handles the new client message from the server"""
@@ -167,19 +174,46 @@ class Peer(DatagramProtocol):
             self.logger.log_message(f"Error processing new client message: {e}", print_message=True)
 
     def add_peer_address(self, peer_address):
-        """Adds a peer address to the list of addresses"""
+        """Adds a peer address to both OrderedDicts"""
+        self.logger.log_message(f"Trying to add peer address: {peer_address}, self.id: {self.id}")
         if not isinstance(peer_address, tuple) or len(peer_address) != 2:
             self.logger.log_message(f"Invalid peer address format: {peer_address}", print_message=True)
             return False
 
+        if peer_address not in self.all_addresses:
+            self.all_addresses[peer_address] = None
+
         if peer_address not in self.addresses and peer_address != self.id:
-            self.addresses.append(peer_address)
+            self.addresses[peer_address] = None
             self.gameplay.increment_connected_peers_count()
-            self.logger.log_message(f"Peer {peer_address} added.", print_message=False)
+            self.logger.log_message(
+                f"Peer {peer_address} added to addresses. Current addresses: {list(self.addresses.keys())}"
+            )
             return True
         else:
-            self.logger.log_message(f"Peer {peer_address} already exists or is self.", print_message=False)
+            self.logger.log_message(
+                f"Peer {peer_address} already exists in addresses or is self.", print_message=False
+            )
             return False
+
+    def handle_peer_disconnection(self, disconnected_peer):
+        """Handles logic when a peer disconnects"""
+        try:
+            try:
+                disconnected_peer_index = list(self.all_addresses.keys()).index(disconnected_peer)
+                self.logger.log_message(f"Disconnected index: {disconnected_peer_index}")
+            except ValueError:
+                self.logger.log_message(f"Disconnected peer {disconnected_peer} not found in all_addresses!", True)
+                return
+
+            self.gameplay.synchronize_turn_orders(disconnected_peer_index, self.all_addresses)
+            self.gameplay.synchronize_passes(disconnected_peer_index)
+            self.gameplay.synchronize_points(disconnected_peer_index)
+
+            del self.all_addresses[disconnected_peer]
+            del self.addresses[disconnected_peer]
+        except Exception as e:
+            self.logger.log_message(f"Error handling PEER_DISCONNECTED: {str(e)}", True)
 
 def peer_start():
     """Finds an available port for the peer to use"""
