@@ -71,7 +71,8 @@ class Peer(DatagramProtocol):
 
     def datagramReceived(self, datagram: bytes, addr):
         datagram = datagram.decode("utf-8")
-        print("Received datagram: ", datagram)
+        if "HEARTBEAT" not in datagram:
+            print("Received datagram: ", datagram)
         if addr == self.server:
             self.handle_datagram_from_server(datagram)
         else:
@@ -133,13 +134,11 @@ class Peer(DatagramProtocol):
         """Handles the player order message from the server"""
         try:
             self.player_order_number = int(datagram_data[1]) 
-            
+
             if self.player_order_number == 1:
                 self.logger.log_message("You are the first player online, waiting for connections")
-                self.gameplay.deck_host_and_first_player = True
-                return
-            
-            self.gameplay.update_order_number(self.player_order_number)
+
+            self.gameplay.update_order_number(self.player_order_number - 1)
 
             peer_list = datagram_data[2:]
             for peer in peer_list:
@@ -166,7 +165,6 @@ class Peer(DatagramProtocol):
             self.add_peer_address(new_client_tuple)
         except (IndexError, ValueError) as e:
             self.logger.log_message(f"Error processing new client message: {e}", print_message=True)
-
 
     def add_peer_address(self, peer_address):
         """Adds a peer address to the list of addresses"""
