@@ -78,6 +78,12 @@ class Gameplay:
         if upper_input == "PRINT_PASSES":
             self.logger.log_message(str(self.passes))
             return "dont-send"
+        if upper_input == "PRINT_TURN":
+            self.logger.log_message(str(self.current_turn))
+            return "dont-send"
+        if upper_input == "PRINT_ID":
+            self.logger.log_message(str(self.own_turn_identifier))
+            return "dont-send"
         self.logger.log_message("Unsupported user input: " + user_input, print_message=False)
         return ""
 
@@ -321,11 +327,15 @@ class Gameplay:
         # case in which disconnected peer was at the top of the dict
         if disconnected_peer_index == 0:
             self._synch_turn_top()
+            if self.is_my_turn():
+                self.logger.log_message("It's now your turn!")
             return
 
         # case in which disconnected peer was at the bottom of the dict
         if disconnected_peer_index == len(all_addresses) - 1:
-            self._synch_turn_bottom(len(all_addresses))
+            self._synch_turn_bottom(disconnected_peer_index)
+            if self.is_my_turn():
+                self.logger.log_message("It's now your turn!")
             return
 
         # ... and hopefully all other cases fall here
@@ -335,26 +345,27 @@ class Gameplay:
                     self.own_turn_identifier -= 1
                 break
 
+        self.connected_peers -= 1
+
         if self.is_my_turn():
             self.logger.log_message("It's now your turn!")
-
-        self.connected_peers -= 1
 
     def _synch_turn_top(self):
         if self.current_turn == 0:
             self.own_turn_identifier -= 1
             self.connected_peers -= 1
-            self.logger.log_message("It's now your turn!")
         else:
             self.own_turn_identifier -= 1
             self.current_turn -= 1
             self.connected_peers -= 1
 
-    def _synch_turn_bottom(self, dict_size):
-        if dict_size == 2:
+    def _synch_turn_bottom(self, disconnected_peer_index):
+        if self.connected_peers == 1:
             self.current_turn -= 1
             self.connected_peers -= 1
-            self.logger.log_message("It's now your turn!")
+        elif self.connected_peers == disconnected_peer_index:
+            self.current_turn = 0
+            self.connected_peers -= 1
         else:
             self.connected_peers -= 1
 
