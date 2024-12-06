@@ -324,7 +324,7 @@ class Gameplay:
             self.connected_peers -= 1
             return
 
-        # disconnected peer had the current turn or was ahead
+        # other cases in which disconnected peer as not at top of the dict
         for index, (peer, _) in enumerate(all_addresses.items()):
             if peer == self.player_id:
                 if index > disconnected_peer_index:
