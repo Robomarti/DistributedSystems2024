@@ -1,6 +1,7 @@
 import random
 from typing import List, Tuple, Optional
 from logger import Logger
+from collections import OrderedDict
 
 class Gameplay:
     """Handles all gameplay-related tasks."""
@@ -21,6 +22,7 @@ class Gameplay:
             "PASS_TURN", "END_GAME", "INVALID_ACTION",
             "SYNC_ERROR", "REQUEST_DECK", "TURN_ORDER"
         ]
+
         self.cards = [
             "C02", "C03", "C04", "C05", "C06", "C07", "C08", "C09", "C10", "C11", "C12", "C13", "C14",  # Clubs
             "D02", "D03", "D04", "D05", "D06", "D07", "D08", "D09", "D10", "D11", "D12", "D13", "D14",  # Diamonds
@@ -39,7 +41,7 @@ class Gameplay:
     def create_deck(self, deck_values: Optional[List[str]] = None):
         """Handles creating or importing the deck"""
         if deck_values is None:
-            self.logger.log_message("First connected player, creating a deck")
+            self.logger.log_message("First turn player, creating a deck")
             self.deck = self.cards.copy()
             random.shuffle(self.deck)
         else:
@@ -310,3 +312,40 @@ class Gameplay:
             if not i in self.points:
                 self.points[i] = 0
         self.logger.log_message("Completed self.points: " + str(self.points), False)
+
+    def synchronize_turn_orders(self, disconnected_peer_index: int, all_addresses: OrderedDict):
+        """
+        Adjusts own_turn_identifier based on the index of the disconnected peer
+        """
+        # special case in which peer at top of the dict disconnected
+        if disconnected_peer_index == 0:
+            self.own_turn_identifier -= 1
+            self.current_turn -= 1
+            self.connected_peers -= 1
+            return
+
+        # other cases in which disconnected peer as not at top of the dict
+        for index, (peer, _) in enumerate(all_addresses.items()):
+            if peer == self.player_id:
+                if index > disconnected_peer_index:
+                    self.own_turn_identifier -= 1
+                break
+
+        if self.is_my_turn():
+            self.logger.log_message("It's now your turn!")
+
+        self.connected_peers -= 1
+
+    def synchronize_passes(self, disconnected_peer_index: int):
+        """Removes the disconnected peer's data from the passes dictionary and re-indexes the keys accordingly."""
+        if self.passes:
+            if disconnected_peer_index in self.passes:
+                self.passes.pop(disconnected_peer_index)
+            self.passes = {index: value for index, value in enumerate(self.passes.values())}
+
+    def synchronize_points(self, disconnected_peer_index: int):
+        """Removes the disconnected peer's data from the points dictionary and re-indexes the keys accordingly."""
+        if self.points:
+            if disconnected_peer_index in self.points:
+                self.points.pop(disconnected_peer_index)
+            self.points = {index: value for index, value in enumerate(self.points.values())}
