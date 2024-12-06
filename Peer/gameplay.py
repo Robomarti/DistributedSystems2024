@@ -315,16 +315,25 @@ class Gameplay:
 
     def synchronize_turn_orders(self, disconnected_peer_index: int, all_addresses: OrderedDict):
         """
-        Adjusts own_turn_identifier based on the index of the disconnected peer and
-        decreases the connected peers by one.
+        Adjusts own_turn_identifier based on the index of the disconnected peer
         """
+        # special case in which peer at top of the dict disconnected
+        if disconnected_peer_index == 0:
+            self.own_turn_identifier -= 1
+            self.current_turn -= 1
+            self.connected_peers -= 1
+            return
+
+        # disconnected peer had the current turn or was ahead
         for index, (peer, _) in enumerate(all_addresses.items()):
             if peer == self.player_id:
                 if index > disconnected_peer_index:
                     self.own_turn_identifier -= 1
                 break
+
         if self.is_my_turn():
             self.logger.log_message("It's now your turn!")
+
         self.connected_peers -= 1
 
     def synchronize_passes(self, disconnected_peer_index: int):
