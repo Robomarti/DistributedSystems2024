@@ -50,7 +50,7 @@ class Gameplay:
 
     def handle_input(self, user_input: str):
         """Handles input from the player."""
-        # splitted_input splits the input message by question mark
+        # splitted_input splits the input message by exclamation mark
         # e.g. DRAW_CARD!D2!11 -> ["DRAW_CARD", "D2", "11"]
         splitted_input = user_input.split("!")
         upper_input = splitted_input[0].upper()

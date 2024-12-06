@@ -23,6 +23,7 @@ class Peer(DatagramProtocol):
         self.gameplay = Gameplay(self.logger, self.id)
         self.heartbeat_manager = HeartbeatManager(self)
         self.player_order_number = -1
+        self.lamport_clock: int = 0
 
         self.logger.log_message("Own address: " + str(self.id), print_message=False)
 
@@ -68,11 +69,17 @@ class Peer(DatagramProtocol):
 
     def _log_and_send_messages(self, messages):
         """Logs and sends messages to all connected peers with error tolerance"""
+        # increment logical clock
+        self.lamport_clock += 1
+
         for message in messages:
             self.logger.log_message("Supported command: " + message, False)
             for peer_address in self.addresses:
                 try:
                     self.logger.log_message("Sending a message to: " + str(peer_address), False)
+                    
+                    # attach local timestamp
+                    message += f"!{self.lamport_clock}"
                     self.send_message(message, peer_address)
                 except Exception as e:
                     self.logger.log_message(f"Error sending message to {peer_address}: {e}", print_message=False)
@@ -107,14 +114,23 @@ class Peer(DatagramProtocol):
             if splitted_command[0].upper() in self.gameplay.supported_incoming_commands:
                 self.logger.log_message(f"Command from {addr}: {splitted_command[0]}", False)
 
+                # check message logical clock value
+                if int(splitted_command[-1]) <= self.lamport_clock:
+                    self.logger.log_message(f"Received old data: {datagram}", False)
+                    return
+                else:
+                    self.lamport_clock = int(splitted_command[-1])
+                
+                # remove logical clock from the received message
+                splitted_command.pop()
+                datagram = "!".join(splitted_command)
+
                 messages_to_send = self.gameplay.handle_incoming_commands(datagram)
                 if messages_to_send:
                     if not isinstance(messages_to_send, list):
                         messages_to_send = [messages_to_send]
 
-                    for message in messages_to_send:
-                        for peer_address in self.addresses:
-                            self.transport.write(message.encode("utf-8"), peer_address)
+                    self._log_and_send_messages(messages_to_send)
             else:
                 self.logger.log_message(f"Message from {addr}: {datagram}")
                 self.logger.log_message("Type a command: ", print_message=True)
@@ -192,8 +208,8 @@ class Peer(DatagramProtocol):
             self.addresses[peer_address] = None
             self.gameplay.increment_connected_peers_count()
             self.logger.log_message(
-                f"Peer {peer_address} added to addresses. Current addresses: {list(self.addresses.keys())}"
-            )
+                f"Peer {peer_address} added to addresses. Current addresses: {list(self.addresses.keys())}",
+            False)
             return True
         else:
             self.logger.log_message(
