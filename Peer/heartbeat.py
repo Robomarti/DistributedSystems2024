@@ -1,6 +1,7 @@
 from typing import Tuple, Dict
 from time import time
 from twisted.internet import reactor
+from peer import Peer
 
 class HeartbeatManager:
     """Manages heartbeat by constantly checking peers to detect any faults within the system
@@ -11,9 +12,9 @@ class HeartbeatManager:
         timeout: How long to wait before considering a peer disconnected (seconds). Default: 2s.
     """
 
-    def __init__(self, peer, heartbeat_interval: float = 1.0,
+    def __init__(self, peer: Peer, heartbeat_interval: float = 1.0,
                  timeout: float = 2.0):
-        self.peer = peer
+        self.peer: Peer = peer
         self.heartbeat_interval = heartbeat_interval
         self.timeout = timeout
         self.last_heartbeats: Dict[Tuple[str, int], float] = {}
