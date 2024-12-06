@@ -217,6 +217,8 @@ class Peer(DatagramProtocol):
 
             del self.all_addresses[disconnected_peer]
             del self.addresses[disconnected_peer]
+        except KeyError as e:
+            pass # all peers will try to access the key, which at some point may not exists, so this is passed
         except Exception as e:
             self.logger.log_message(f"Error handling PEER_DISCONNECTED: {str(e)}")
 
