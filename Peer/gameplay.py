@@ -1,7 +1,7 @@
 import random
+from collections import OrderedDict
 from typing import List, Tuple, Optional
 from logger import Logger
-from collections import OrderedDict
 
 class Gameplay:
     """Handles all gameplay-related tasks."""

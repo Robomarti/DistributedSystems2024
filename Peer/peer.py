@@ -1,12 +1,12 @@
 import random
 import socket
 import os
+from collections import OrderedDict
 from twisted.internet.protocol import DatagramProtocol
 from twisted.internet import reactor
 from gameplay import Gameplay
 from logger import Logger
 from heartbeat import HeartbeatManager
-from collections import OrderedDict
 
 class Peer(DatagramProtocol):
     """Handles message sending and receiving"""
@@ -155,8 +155,8 @@ class Peer(DatagramProtocol):
             peer_list = datagram_data[2:]
             for peer in peer_list:
                 try:
-                    ip, port = peer.split(":")
-                    peer_tuple = (ip, int(port))
+                    ip, peer_port = peer.split(":")
+                    peer_tuple = (ip, int(peer_port))
                     self.add_peer_address(peer_tuple)
                 except ValueError as e:
                     self.logger.log_message(f"Error parsing peer address {peer}: {e}", print_message=False)

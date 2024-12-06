@@ -1,7 +1,7 @@
 import os
+from collections import OrderedDict
 from twisted.internet.protocol import DatagramProtocol
 from twisted.internet import reactor
-from collections import OrderedDict
 from twisted.internet.task import LoopingCall
 
 class Server(DatagramProtocol):
