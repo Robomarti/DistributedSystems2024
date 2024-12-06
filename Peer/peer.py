@@ -24,9 +24,9 @@ class Peer(DatagramProtocol):
 
     def startProtocol(self):
         """Send a message to the server to get connected to other peers"""
-        self.send_message1("ready", self.server)
+        self.send_message("ready", self.server)
 
-    def send_message1(self, message, target_addr):
+    def send_message(self, message, target_addr):
         """send message to target_addr"""
         self.transport.write(message.encode('utf-8'), target_addr)
 
@@ -39,16 +39,14 @@ class Peer(DatagramProtocol):
         except Exception as e:
             self.logger.log_message(f"Error broadcasting message: {e}", print_message=True)
 
-
-
-    def send_message(self):
+    def handle_type_command(self):
         """Handles gathering user input and sending messages to connected peers"""
         while True:
             self.logger.log_message("Type a command: ")
             user_input = input()
             self.logger.log_message(user_input, False)
 
-            # decide what to send to peers
+            # Decide what to send to peers
             message_to_send = self.gameplay.handle_input(user_input)
 
             if not message_to_send:
@@ -57,15 +55,24 @@ class Peer(DatagramProtocol):
             elif message_to_send == "dont-send":
                 continue
 
+            # Ensure message_to_send is a list
             if not isinstance(message_to_send, list):
                 message_to_send = [message_to_send]
 
-            for message in message_to_send:
-                self.logger.log_message("Supported command: " + message, False)
+            # Log and send each message
+            self._log_and_send_messages(message_to_send)
 
-                for peer_address in self.addresses:
+    def _log_and_send_messages(self, messages):
+        """Logs and sends messages to all connected peers with error tolerance"""
+        for message in messages:
+            self.logger.log_message("Supported command: " + message, False)
+            for peer_address in self.addresses:
+                try:
                     self.logger.log_message("Sending a message to: " + str(peer_address), False)
-                    self.transport.write(message.encode('utf-8'), peer_address)
+                    self.send_message(message, peer_address)
+                except Exception as e:
+                    self.logger.log_message(f"Error sending message to {peer_address}: {e}", print_message=True)
+
 
     def datagramReceived(self, datagram: bytes, addr):
         datagram = datagram.decode("utf-8")
@@ -111,7 +118,7 @@ class Peer(DatagramProtocol):
         # If this is called here, the first player can't issue commands
         # until at least 1 other peer is connected
         if not self.send_message_thread_active and self.addresses:
-            reactor.callInThread(self.send_message)
+            reactor.callInThread(self.handle_type_command)
             self.send_message_thread_active = True
 
     def handle_player_order(self, datagram_data):
