@@ -325,7 +325,7 @@ class Gameplay:
 
         # case in which disconnected peer was at the bottom of the dict
         if disconnected_peer_index == len(all_addresses) - 1:
-            self._synch_turn_bottom()
+            self._synch_turn_bottom(len(all_addresses))
             return
 
         # ... and hopefully all other cases fall here
@@ -345,8 +345,13 @@ class Gameplay:
         self.current_turn -= 1
         self.connected_peers -= 1
 
-    def _synch_turn_bottom(self):
-        self.connected_peers -= 1
+    def _synch_turn_bottom(self, dict_size):
+        if dict_size == 2:
+            self.current_turn -= 1
+            self.connected_peers -= 1
+            self.logger.log_message("It's now your turn!")
+        else:
+            self.connected_peers -= 1
 
     def synchronize_passes(self, disconnected_peer_index: int):
         """Removes the disconnected peer's data from the passes dictionary and re-indexes the keys accordingly."""
