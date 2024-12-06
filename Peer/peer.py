@@ -148,8 +148,6 @@ class Peer(DatagramProtocol):
             if self.gameplay.own_turn_identifier == -1:
                 self.gameplay.update_order_number(self.player_order_number - 1)
 
-            self.logger.log_message(f"PLAYER ORDER NUMBER {self.player_order_number}")
-
             peer_list = datagram_data[2:]
             for peer in peer_list:
                 try:
@@ -162,8 +160,6 @@ class Peer(DatagramProtocol):
             if self.id not in self.all_addresses:
                 self.all_addresses[self.id] = None
 
-            print(f"Connected peers: {list(self.addresses.keys())}")
-            print(f"All peers: {list(self.all_addresses.keys())}")
         except (IndexError, ValueError) as e:
             self.logger.log_message(f"Error processing player order message: {e}", print_message=True)
 
@@ -181,7 +177,6 @@ class Peer(DatagramProtocol):
 
     def add_peer_address(self, peer_address):
         """Adds a peer address to both OrderedDicts"""
-        self.logger.log_message(f"Trying to add peer address: {peer_address}, self.id: {self.id}")
         if not isinstance(peer_address, tuple) or len(peer_address) != 2:
             self.logger.log_message(f"Invalid peer address format: {peer_address}", print_message=True)
             return False
