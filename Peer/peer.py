@@ -90,7 +90,7 @@ class Peer(DatagramProtocol):
     def datagramReceived(self, datagram: bytes, addr):
         datagram = datagram.decode("utf-8")
         if "HEARTBEAT" not in datagram:
-            print("Received datagram: ", datagram)
+            self.logger.log_message(f"Received datagram: {datagram}", False)
         if addr == self.server:
             self.handle_datagram_from_server(datagram)
         else:
@@ -180,7 +180,7 @@ class Peer(DatagramProtocol):
         """Handles the new client message from the server"""
         try:
             new_client_address = datagram_data[1]
-            self.logger.log_message("New client connected: " + new_client_address)
+            self.logger.log_message("New client connected: " + new_client_address, False)
             
             ip, port = new_client_address.split(":")
             new_client_tuple = (ip, int(port))
