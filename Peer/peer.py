@@ -29,17 +29,16 @@ class Peer(DatagramProtocol):
         """Send a message to the server to get connected to other peers"""
         self.send_message("ready", self.server)
 
-    def send_message(self, message, target_addr):
     def stopProtocol(self):
         """Notify the server about disconnection and stop heartbeat."""
         try:
-            self.send_message1("disconnect", self.server)
+            self.send_message("disconnect", self.server)
             self.logger.log_message("Sent disconnect message to server.", print_message=True)
         except Exception as e:
             self.logger.log_message(f"Error notifying server about disconnection: {e}", print_message=True)
         self.heartbeat_manager.stop()
 
-    def send_message1(self, message, target_addr):
+    def send_message(self, message, target_addr):
         """send message to target_addr"""
         self.transport.write(message.encode('utf-8'), target_addr)
 
