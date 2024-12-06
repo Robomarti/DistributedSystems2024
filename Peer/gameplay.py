@@ -341,9 +341,14 @@ class Gameplay:
         self.connected_peers -= 1
 
     def _synch_turn_top(self):
-        self.own_turn_identifier -= 1
-        self.current_turn -= 1
-        self.connected_peers -= 1
+        if self.current_turn == 0:
+            self.own_turn_identifier -= 1
+            self.connected_peers -= 1
+            self.logger.log_message("It's now your turn!")
+        else:
+            self.own_turn_identifier -= 1
+            self.current_turn -= 1
+            self.connected_peers -= 1
 
     def _synch_turn_bottom(self, dict_size):
         if dict_size == 2:
