@@ -209,15 +209,17 @@ class Peer(DatagramProtocol):
     def handle_peer_disconnection(self, disconnected_peer):
         """Handles logic when a peer disconnects"""
         try:
+            disconnected_peer_index = None
             try:
+                self.logger.log_message(f"Disconnected peer: {disconnected_peer}", True)
                 disconnected_peer_index = list(self.all_addresses.keys()).index(disconnected_peer)
-            except ValueError:
-                self.logger.log_message(f"Disconnected peer {disconnected_peer} not found in all_addresses!", True)
-                return
+            except ValueError as e: # sometimes peers also can try to access the same value
+                pass
 
-            self.gameplay.synchronize_turn_orders(disconnected_peer_index, self.all_addresses)
-            self.gameplay.synchronize_passes(disconnected_peer_index)
-            self.gameplay.synchronize_points(disconnected_peer_index)
+            if disconnected_peer_index != None:
+                self.gameplay.synchronize_turn_orders(disconnected_peer_index, self.all_addresses)
+                self.gameplay.synchronize_passes(disconnected_peer_index)
+                self.gameplay.synchronize_points(disconnected_peer_index)
 
             del self.all_addresses[disconnected_peer]
             del self.addresses[disconnected_peer]

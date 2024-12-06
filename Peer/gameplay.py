@@ -317,14 +317,18 @@ class Gameplay:
         """
         Adjusts own_turn_identifier based on the index of the disconnected peer
         """
-        # special case in which peer at top of the dict disconnected
+
+        # case in which disconnected peer was at the top of the dict
         if disconnected_peer_index == 0:
-            self.own_turn_identifier -= 1
-            self.current_turn -= 1
-            self.connected_peers -= 1
+            self._synch_turn_top()
             return
 
-        # other cases in which disconnected peer as not at top of the dict
+        # case in which disconnected peer was at the bottom of the dict
+        if disconnected_peer_index == len(all_addresses) - 1:
+            self._synch_turn_bottom()
+            return
+
+        # ... and hopefully all other cases fall here
         for index, (peer, _) in enumerate(all_addresses.items()):
             if peer == self.player_id:
                 if index > disconnected_peer_index:
@@ -334,6 +338,14 @@ class Gameplay:
         if self.is_my_turn():
             self.logger.log_message("It's now your turn!")
 
+        self.connected_peers -= 1
+
+    def _synch_turn_top(self):
+        self.own_turn_identifier -= 1
+        self.current_turn -= 1
+        self.connected_peers -= 1
+
+    def _synch_turn_bottom(self):
         self.connected_peers -= 1
 
     def synchronize_passes(self, disconnected_peer_index: int):
