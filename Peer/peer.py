@@ -43,15 +43,6 @@ class Peer(DatagramProtocol):
         """send message to target_addr"""
         self.transport.write(message.encode('utf-8'), target_addr)
 
-    def broadcast(self, message: str):
-        """Broadcasts a message to all connected peers"""
-        try:
-            for peer_address in self.addresses.keys():
-                self.transport.write(message.encode("utf-8"), peer_address)
-            self.logger.log_message(f"Broadcast message: {message}", print_message=False)
-        except Exception as e:
-            self.logger.log_message(f"Error broadcasting message: {e}", print_message=False)
-
     def handle_type_command(self):
         """Handles gathering user input and sending messages to connected peers"""
         while True:
