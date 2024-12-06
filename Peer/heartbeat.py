@@ -61,8 +61,7 @@ class HeartbeatManager:
                         return
                     else:
                         self.peer.logger.log_message(
-                            f"Failed to send heartbeat to {peer_address} after {
-                                self.max_send_retries} retries",
+                            f"Failed to send heartbeat to {peer_address} after {self.max_send_retries} retries",
                             print_message=True
                         )
                         self.handle_send_failure(peer_address)
