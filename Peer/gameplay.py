@@ -41,7 +41,7 @@ class Gameplay:
     def create_deck(self, deck_values: Optional[List[str]] = None):
         """Handles creating or importing the deck"""
         if deck_values is None:
-            self.logger.log_message("First connected player, creating a deck")
+            self.logger.log_message("First turn player, creating a deck")
             self.deck = self.cards.copy()
             random.shuffle(self.deck)
         else:
@@ -329,12 +329,14 @@ class Gameplay:
 
     def synchronize_passes(self, disconnected_peer_index: int):
         """Removes the disconnected peer's data from the passes dictionary and re-indexes the keys accordingly."""
-        if disconnected_peer_index in self.passes:
-            self.passes.pop(disconnected_peer_index)
-        self.passes = {index: value for index, value in enumerate(self.passes.values())}
+        if self.passes:
+            if disconnected_peer_index in self.passes:
+                self.passes.pop(disconnected_peer_index)
+            self.passes = {index: value for index, value in enumerate(self.passes.values())}
 
     def synchronize_points(self, disconnected_peer_index: int):
         """Removes the disconnected peer's data from the points dictionary and re-indexes the keys accordingly."""
-        if disconnected_peer_index in self.points:
-            self.points.pop(disconnected_peer_index)
-        self.points = {index: value for index, value in enumerate(self.points.values())}
+        if self.points:
+            if disconnected_peer_index in self.points:
+                self.points.pop(disconnected_peer_index)
+            self.points = {index: value for index, value in enumerate(self.points.values())}

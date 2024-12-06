@@ -30,6 +30,12 @@ class Peer(DatagramProtocol):
         self.send_message1("ready", self.server)
 
     def stopProtocol(self):
+        """Notify the server about disconnection and stop heartbeat."""
+        try:
+            self.send_message1("disconnect", self.server)
+            self.logger.log_message("Sent disconnect message to server.", print_message=True)
+        except Exception as e:
+            self.logger.log_message(f"Error notifying server about disconnection: {e}", print_message=True)
         self.heartbeat_manager.stop()
 
     def send_message1(self, message, target_addr):
@@ -201,7 +207,6 @@ class Peer(DatagramProtocol):
         try:
             try:
                 disconnected_peer_index = list(self.all_addresses.keys()).index(disconnected_peer)
-                self.logger.log_message(f"Disconnected index: {disconnected_peer_index}")
             except ValueError:
                 self.logger.log_message(f"Disconnected peer {disconnected_peer} not found in all_addresses!", True)
                 return
@@ -213,7 +218,7 @@ class Peer(DatagramProtocol):
             del self.all_addresses[disconnected_peer]
             del self.addresses[disconnected_peer]
         except Exception as e:
-            self.logger.log_message(f"Error handling PEER_DISCONNECTED: {str(e)}", True)
+            self.logger.log_message(f"Error handling PEER_DISCONNECTED: {str(e)}")
 
 def peer_start():
     """Finds an available port for the peer to use"""
@@ -227,7 +232,7 @@ def peer_start():
                 return port
             except OSError:
                 continue
-    
+
 if __name__ == '__main__':
     port = peer_start()
     print(f"Using port number: {port}")
