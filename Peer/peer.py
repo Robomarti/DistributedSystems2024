@@ -139,6 +139,9 @@ class Peer(DatagramProtocol):
         if datagram_data[0] == "NEW_CLIENT":
             self.handle_new_client(datagram_data)
 
+        # new
+        elif datagram_data[0] == "PEER_DISCONNECTED":
+            self.handle_server_disconnection(datagram_data)
         # If this is called here, the first player can't issue commands
         # until at least 1 other peer is connected
         if not self.send_message_thread_active and self.addresses:
@@ -227,6 +230,17 @@ class Peer(DatagramProtocol):
             pass # all peers will try to access the key, which at some point may not exists, so this is passed
         except Exception as e:
             self.logger.log_message(f"Error handling PEER_DISCONNECTED: {str(e)}")
+
+    def handle_server_disconnection(self, datagram_data):
+        """Handle disconnection messages from the server."""
+        try:
+            disconnected_peer_ip = datagram_data[1]
+            disconnected_peer_port = int(datagram_data[2])
+            disconnected_peer = (disconnected_peer_ip, disconnected_peer_port)
+            self.handle_peer_disconnection(disconnected_peer)
+            self.logger.log_message(f"Peer {disconnected_peer} disconnected (by server).", print_message=True)
+        except (IndexError, ValueError) as e:
+            self.logger.log_message(f"Error processing server disconnection message: {e}", True)
 
 def peer_start():
     """Finds an available port for the peer to use"""
