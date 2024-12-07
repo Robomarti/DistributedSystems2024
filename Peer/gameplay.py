@@ -290,11 +290,23 @@ class Gameplay:
         """Calculate which player won"""
         for i in self.losers:
             self.points[i] = 0
-        key_for_most_points = max(self.points, key= lambda x: self.points[x])
-        if key_for_most_points == self.own_turn_identifier:
+
+        most_points = 0
+        draw = False
+        for key in self.points:
+            if self.points[key] > most_points:
+                draw = False
+                most_points = self.points[key]
+            elif self.points[key] == most_points:
+                draw = True
+                most_points = self.points[key]
+
+        if draw:
+            self.logger.log_message("Draw!")
+        elif self.points[self.own_turn_identifier] == most_points:
             self.logger.log_message("You won!")
         else:
-            self.logger.log_message("Player " + str(key_for_most_points) + " won!")
+            self.logger.log_message("You lost!")
 
     def has_everyone_passed(self):
         """Checks if everyone has passed"""
