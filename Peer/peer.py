@@ -167,6 +167,9 @@ class Peer(DatagramProtocol):
             if self.gameplay.own_turn_identifier == -1:
                 self.gameplay.update_order_number(player_order_number)
 
+            # Clear addresses list to ensure that every peer has the addresses in the same order
+            self.addresses = []
+
             peer_list = datagram_data[2:]
             for peer in peer_list:
                 try:
