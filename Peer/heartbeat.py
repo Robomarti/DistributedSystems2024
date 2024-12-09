@@ -1,6 +1,9 @@
-from typing import Tuple, Dict
+from typing import Tuple, Dict, TYPE_CHECKING
 from time import time
 from twisted.internet import reactor
+
+if TYPE_CHECKING:
+    from peer import Peer
 
 class HeartbeatManager:
     """Manages heartbeat by constantly checking peers to detect any faults within the system
@@ -11,9 +14,9 @@ class HeartbeatManager:
         timeout: How long to wait before considering a peer disconnected (seconds). Default: 2s.
     """
 
-    def __init__(self, peer, heartbeat_interval: float = 1.0,
+    def __init__(self, peer: 'Peer', heartbeat_interval: float = 1.0,
                  timeout: float = 2.0):
-        self.peer = peer
+        self.peer = peer # we can't import the Peer type, because that would lead to circular import
         self.heartbeat_interval = heartbeat_interval
         self.timeout = timeout
         self.last_heartbeats: Dict[Tuple[str, int], float] = {}
@@ -30,7 +33,7 @@ class HeartbeatManager:
         except Exception as e:
             self.peer.logger.log_message(
                 f"Error starting heartbeat manager: {e}",
-                print_message=True)
+                print_message=False)
 
     def stop(self):
         """Stop the heartbeat checking and sending loops"""
@@ -42,12 +45,12 @@ class HeartbeatManager:
         except Exception as e:
             self.peer.logger.log_message(
                 f"Error stopping heartbeat manager: {e}",
-                print_message=True)
+                print_message=False)
 
     def send_heartbeats(self, retry_count: int = 0):
         """Send heartbeat messages to all connected peers with retry logic"""
         try:
-            for peer_address in self.peer.addresses.keys():
+            for peer_address in self.peer.addresses:
                 try:
                     self.peer.transport.write(
                         "HEARTBEAT!".encode("utf-8"), peer_address)
@@ -62,13 +65,13 @@ class HeartbeatManager:
                     else:
                         self.peer.logger.log_message(
                             f"Failed to send heartbeat to {peer_address} after {self.max_send_retries} retries",
-                            print_message=True
+                            print_message=False
                         )
                         self.handle_send_failure(peer_address)
                 except Exception as e:
                     self.peer.logger.log_message(
                         f"Error sending heartbeat to {peer_address}: {e}",
-                        print_message=True
+                        print_message=False
                     )
                     self.handle_send_failure(peer_address)
             self.send_loop = reactor.callLater(
@@ -76,7 +79,7 @@ class HeartbeatManager:
         except Exception as e:
             self.peer.logger.log_message(
                 f"Error in send_heartbeats: {e}",
-                print_message=True)
+                print_message=False)
             self.send_loop = reactor.callLater(
                 self.heartbeat_interval, self.send_heartbeats, 0)
 
@@ -90,7 +93,7 @@ class HeartbeatManager:
             current_time = time()
             disconnected_peers = []
 
-            for peer_address in self.peer.addresses.keys():
+            for peer_address in self.peer.addresses:
                 if peer_address not in self.last_heartbeats:
                     self.last_heartbeats[peer_address] = current_time
                 elif current_time - self.last_heartbeats[peer_address] > self.timeout:
@@ -112,20 +115,20 @@ class HeartbeatManager:
         """Notify peers about a disconnect."""
         if peer_address in self.peer.addresses:
             self.peer.logger.log_message(
-                f"Peer {peer_address} disconnected due to heartbeat timeout.",
-                print_message=True
+                "Peer disconnected due to heartbeat timeout.", print_message=True
             )
+            self.peer.logger.log_message(f"{peer_address} timeouted.",False)
 
-            del self.peer.addresses[peer_address]
+            self.peer.addresses.remove(peer_address)
 
             message = f"PEER_DISCONNECTED!{peer_address[0]}!{peer_address[1]}"
-            for addr in self.peer.all_addresses.keys():
+            for addr in self.peer.addresses:
                 try:
                     self.peer.transport.write(message.encode("utf-8"), addr)
                 except Exception as e:
                     self.peer.logger.log_message(
                         f"Error notifying {addr} about disconnect: {e}",
-                        print_message=True
+                        print_message=False
                     )
 
     def record_heartbeat(self, peer_address: Tuple[str, int]):
@@ -135,5 +138,5 @@ class HeartbeatManager:
         except Exception as e:
             self.peer.logger.log_message(
                 f"Error recording heartbeat from {peer_address}: {e}",
-                print_message=True
+                print_message=False
             )
