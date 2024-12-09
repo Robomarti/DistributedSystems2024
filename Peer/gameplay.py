@@ -108,7 +108,7 @@ class Gameplay:
         card_drawn = self.deck.pop(0)
         self.add_points(card_drawn)
         result_message = f"DRAW_CARD!{card_drawn}!{len(self.deck)}"
-        self.advance_player_turn(self.current_turn+1)
+        self.advance_player_turn(self.own_turn_identifier)
         return result_message
 
     def pass_turn_input(self) -> str:
@@ -123,7 +123,7 @@ class Gameplay:
 
         self.logger.log_message("Passed")
         self.passes[self.current_turn] = True
-        self.advance_player_turn(self.current_turn+1)
+        self.advance_player_turn(self.own_turn_identifier)
         return "PASS_TURN!"
 
     def initiate_game_input(self) -> List[str]:
@@ -138,7 +138,7 @@ class Gameplay:
         deck_message = self.send_deck()
         return [deck_message]
 
-    def handle_incoming_commands(self, datagram: str) -> List[str]:
+    def handle_incoming_commands(self, datagram: str, peer_index: int) -> List[str]:
         """Handles the commands sent to connected peers (players)."""
         resulting_commands = []
         splitted_command = datagram.split("!")
@@ -152,9 +152,9 @@ class Gameplay:
             self.initialize_passes()
             self.create_deck_command(splitted_command)
         elif command == "DRAW_CARD":
-            resulting_commands.extend(self.draw_card_command(splitted_command))
+            resulting_commands.extend(self.draw_card_command(splitted_command, peer_index))
         elif command == "PASS_TURN":
-            self.pass_turn_command()
+            self.pass_turn_command(peer_index)
         elif command == "INVALID_ACTION":
             self.logger.log_message("Invalid action")
         elif command == "SYNC_ERROR":
@@ -176,7 +176,7 @@ class Gameplay:
         if self.is_my_turn() and self.has_current_turn_passed():
             self.logger.log_message("Automatically passed.")
             resulting_commands.append("PASS_TURN!")
-            self.advance_player_turn(self.current_turn+1)
+            self.advance_player_turn(self.own_turn_identifier)
 
         return resulting_commands
 
@@ -189,7 +189,7 @@ class Gameplay:
         if self.current_turn == -1:
             self.current_turn = 0
 
-    def draw_card_command(self, splitted_command: List[str]) -> List[str]:
+    def draw_card_command(self, splitted_command: List[str], peer_index: int) -> List[str]:
         """Processes DRAW_CARD! command."""
         resulting_commands = []
         card_drawn = splitted_command[1]
@@ -209,14 +209,14 @@ class Gameplay:
         if deck_length != len(self.deck):
             resulting_commands.extend(["SYNC_ERROR!", "REQUEST_DECK"])
 
-        self.advance_player_turn(self.current_turn+1)
+        self.advance_player_turn(peer_index)
         return resulting_commands
 
-    def pass_turn_command(self):
+    def pass_turn_command(self, peer_index: int):
         """Processes PASS_TURN! command."""
         self.logger.log_message("Peer passed their turn")
         self.passes[self.current_turn] = True
-        self.advance_player_turn(self.current_turn+1)
+        self.advance_player_turn(peer_index)
 
     def has_current_turn_passed(self) -> bool:
         """Checks if the player whose turn it is has passed."""
@@ -233,15 +233,17 @@ class Gameplay:
     def advance_player_turn(self, peer_index: int):
         """Sets the current_turn to advance from the peer who issued this function call.\n
         Should be called locally and remotely"""
-        turns_to_advance = peer_index - self.current_turn
+        message_from_correct_peer = peer_index - self.current_turn == 0
 
-        # when switching from last player to the first
-        if turns_to_advance < 0:
-            turns_to_advance += self.connected_peers + 1
+        if message_from_correct_peer:
+            self.current_turn += 1
+        else:
+            self.current_turn = peer_index+1
 
-        self.current_turn = turns_to_advance
-        if self.current_turn > self.connected_peers:
-            self.current_turn = 0
+        # keep current_turn in bounds
+        while self.current_turn > self.connected_peers:
+            self.current_turn -= (self.connected_peers + 1)
+
         if self.is_my_turn():
             self.logger.log_message("It's now your turn!")
         self.logger.log_message(str(self.current_turn) + "th player's turn", False)
