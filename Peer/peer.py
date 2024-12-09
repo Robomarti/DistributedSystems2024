@@ -221,7 +221,7 @@ class Peer(DatagramProtocol):
         try:
             disconnected_peer_index = None
             try:
-                self.logger.log_message(f"Disconnected peer: {disconnected_peer}", True)
+                self.logger.log_message(f"Disconnected peer: {disconnected_peer}", False)
                 disconnected_peer_index = self.addresses.index(disconnected_peer)
             except ValueError as _: # sometimes peers also can try to access the same value
                 pass
