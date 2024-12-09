@@ -1,7 +1,6 @@
 import random
 import socket
 import os
-from collections import OrderedDict
 from twisted.internet.protocol import DatagramProtocol
 from twisted.internet import reactor
 from gameplay import Gameplay
@@ -15,13 +14,12 @@ class Peer(DatagramProtocol):
             host = "127.0.0.1"
 
         self.id = (host, own_port)
-        self.addresses = []
+        self.addresses = [] # for some reason, this array should not be given a type
         self.server = ("127.0.0.1", 9999)
         self.send_message_thread_active = False
         self.logger = Logger(self.id)
         self.gameplay = Gameplay(self.logger, self.id)
         self.heartbeat_manager = HeartbeatManager(self)
-        self.player_order_number = -1
         self.lamport_clock: int = 0
 
         self.logger.log_message("Own address: " + str(self.id), print_message=False)
@@ -159,13 +157,13 @@ class Peer(DatagramProtocol):
     def handle_player_order(self, datagram_data):
         """Handles the player order message from the server"""
         try:
-            self.player_order_number = int(datagram_data[1])
+            player_order_number = int(datagram_data[1])
 
-            if self.player_order_number == 1:
+            if player_order_number == 0:
                 self.logger.log_message("You are the first player online, waiting for connections")
 
             if self.gameplay.own_turn_identifier == -1:
-                self.gameplay.update_order_number(self.player_order_number - 1)
+                self.gameplay.update_order_number(player_order_number)
 
             peer_list = datagram_data[2:]
             for peer in peer_list:
