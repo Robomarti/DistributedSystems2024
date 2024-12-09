@@ -338,7 +338,7 @@ class Gameplay:
                 self.points[i] = 0
         self.logger.log_message("Completed self.points: " + str(self.points), False)
 
-    def synchronize_turn_orders(self, disconnected_peer_index: int, all_addresses: OrderedDict):
+    def synchronize_turn_orders(self, disconnected_peer_index: int, all_addresses: List):
         """
         Adjusts own_turn_identifier based on the index of the disconnected peer
         """
@@ -358,7 +358,7 @@ class Gameplay:
             return
 
         # ... and hopefully all other cases fall here
-        for index, (peer, _) in enumerate(all_addresses.items()):
+        for index, (peer, _) in enumerate(all_addresses):
             if peer == self.player_id:
                 if index > disconnected_peer_index:
                     self.own_turn_identifier -= 1

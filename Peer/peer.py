@@ -15,8 +15,7 @@ class Peer(DatagramProtocol):
             host = "127.0.0.1"
 
         self.id = (host, own_port)
-        self.addresses = OrderedDict()
-        self.all_addresses = OrderedDict()
+        self.addresses = []
         self.server = ("127.0.0.1", 9999)
         self.send_message_thread_active = False
         self.logger = Logger(self.id)
@@ -177,9 +176,6 @@ class Peer(DatagramProtocol):
                 except ValueError as e:
                     self.logger.log_message(f"Error parsing peer address {peer}: {e}", print_message=False)
 
-            if self.id not in self.all_addresses:
-                self.all_addresses[self.id] = None
-
         except (IndexError, ValueError) as e:
             self.logger.log_message(f"Error processing player order message: {e}", print_message=False)
 
@@ -201,14 +197,11 @@ class Peer(DatagramProtocol):
             self.logger.log_message(f"Invalid peer address format: {peer_address}", print_message=False)
             return False
 
-        if peer_address not in self.all_addresses:
-            self.all_addresses[peer_address] = None
-
         if peer_address not in self.addresses and peer_address != self.id:
-            self.addresses[peer_address] = None
+            self.addresses.append(peer_address)
             self.gameplay.increment_connected_peers_count()
             self.logger.log_message(
-                f"Peer {peer_address} added to addresses. Current addresses: {list(self.addresses.keys())}",
+                f"Peer {peer_address} added to addresses. Current addresses: {self.addresses}",
             False)
             return True
         else:
@@ -223,17 +216,16 @@ class Peer(DatagramProtocol):
             disconnected_peer_index = None
             try:
                 self.logger.log_message(f"Disconnected peer: {disconnected_peer}", True)
-                disconnected_peer_index = list(self.all_addresses.keys()).index(disconnected_peer)
+                disconnected_peer_index = self.addresses.index(disconnected_peer)
             except ValueError as _: # sometimes peers also can try to access the same value
                 pass
 
             if disconnected_peer_index != None:
-                self.gameplay.synchronize_turn_orders(disconnected_peer_index, self.all_addresses)
+                self.gameplay.synchronize_turn_orders(disconnected_peer_index, self.addresses)
                 self.gameplay.synchronize_passes(disconnected_peer_index)
                 self.gameplay.synchronize_points(disconnected_peer_index)
 
-            del self.all_addresses[disconnected_peer]
-            del self.addresses[disconnected_peer]
+            self.addresses.remove(disconnected_peer)
         except KeyError as _:
             pass # all peers will try to access the key, which may not exist, so this is passed
         except Exception as e:
