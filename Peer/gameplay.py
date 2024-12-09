@@ -108,7 +108,7 @@ class Gameplay:
         card_drawn = self.deck.pop(0)
         self.add_points(card_drawn)
         result_message = f"DRAW_CARD!{card_drawn}!{len(self.deck)}"
-        self.advance_player_turn()
+        self.advance_player_turn(self.current_turn+1)
         return result_message
 
     def pass_turn_input(self) -> str:
@@ -123,7 +123,7 @@ class Gameplay:
 
         self.logger.log_message("Passed")
         self.passes[self.current_turn] = True
-        self.advance_player_turn()
+        self.advance_player_turn(self.current_turn+1)
         return "PASS_TURN!"
 
     def initiate_game_input(self) -> List[str]:
@@ -176,7 +176,7 @@ class Gameplay:
         if self.is_my_turn() and self.has_current_turn_passed():
             self.logger.log_message("Automatically passed.")
             resulting_commands.append("PASS_TURN!")
-            self.advance_player_turn()
+            self.advance_player_turn(self.current_turn+1)
 
         return resulting_commands
 
@@ -209,14 +209,14 @@ class Gameplay:
         if deck_length != len(self.deck):
             resulting_commands.extend(["SYNC_ERROR!", "REQUEST_DECK"])
 
-        self.advance_player_turn()
+        self.advance_player_turn(self.current_turn+1)
         return resulting_commands
 
     def pass_turn_command(self):
         """Processes PASS_TURN! command."""
         self.logger.log_message("Peer passed their turn")
         self.passes[self.current_turn] = True
-        self.advance_player_turn()
+        self.advance_player_turn(self.current_turn+1)
 
     def has_current_turn_passed(self) -> bool:
         """Checks if the player whose turn it is has passed."""
@@ -230,9 +230,16 @@ class Gameplay:
         """Checks if the game has been initiated."""
         return bool(self.current_turn > -1)
 
-    def advance_player_turn(self):
-        """Advances the player's turn - should be called locally and remotely"""
-        self.current_turn += 1
+    def advance_player_turn(self, peer_index: int):
+        """Sets the current_turn to advance from the peer who issued this function call.\n
+        Should be called locally and remotely"""
+        turns_to_advance = peer_index - self.current_turn
+
+        # when switching from last player to the first
+        if turns_to_advance < 0:
+            turns_to_advance += self.connected_peers + 1
+
+        self.current_turn = turns_to_advance
         if self.current_turn > self.connected_peers:
             self.current_turn = 0
         if self.is_my_turn():
