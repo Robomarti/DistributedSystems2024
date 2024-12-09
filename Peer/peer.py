@@ -146,9 +146,6 @@ class Peer(DatagramProtocol):
         if datagram_data[0] == "PLAYER_ORDER":
             self.handle_player_order(datagram_data)
 
-        if datagram_data[0] == "NEW_CLIENT":
-            self.handle_new_client(datagram_data)
-
         # new
         elif datagram_data[0] == "PEER_DISCONNECTED":
             self.handle_server_disconnection(datagram_data)
@@ -181,18 +178,6 @@ class Peer(DatagramProtocol):
 
         except (IndexError, ValueError) as e:
             self.logger.log_message(f"Error processing player order message: {e}", print_message=False)
-
-    def handle_new_client(self, datagram_data):
-        """Handles the new client message from the server"""
-        try:
-            new_client_address = datagram_data[1]
-            self.logger.log_message("New client connected: " + new_client_address, False)
-            
-            ip, port = new_client_address.split(":")
-            new_client_tuple = (ip, int(port))
-            self.add_peer_address(new_client_tuple)
-        except (IndexError, ValueError) as e:
-            self.logger.log_message(f"Error processing new client message: {e}", print_message=False)
 
     # maybe this function should not be used, just receive the whole list of peer addresses from the server
     def add_peer_address(self, peer_address):

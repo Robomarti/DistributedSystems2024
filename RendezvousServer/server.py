@@ -37,13 +37,13 @@ class Server(DatagramProtocol):
             self.clients.append(addr)
             print(f"Client connected: {addr}")
             self.player_order()
-            self.send_all(f"NEW_CLIENT!{addr[0]}:{addr[1]}", exclude=addr)
 
     def client_disconnection(self, addr):
         """Handle a client disconnection"""
         if addr in self.clients:
             print(f"Client disconnected: {addr}")
-            del self.clients[addr]
+            if addr in self.clients:
+                self.clients.remove(addr)
             del self.last_recv[addr] # Timeout disconnection
             self.player_order()
 
