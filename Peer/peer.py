@@ -13,9 +13,9 @@ class Peer(DatagramProtocol):
         if host == "localhost":
             host = "127.0.0.1"
 
-        self.id = (host, own_port)
+        self.id = ("127.0.0.1", own_port)
         self.addresses = [] # for some reason, this array should not be given a type
-        self.server = ("127.0.0.1", 9999)
+        self.server = (host, 9999)
         self.send_message_thread_active = False
         self.logger = Logger(self.id)
         self.gameplay = Gameplay(self.logger, self.id)
@@ -69,6 +69,9 @@ class Peer(DatagramProtocol):
         # increment logical clock
         self.lamport_clock += 1
 
+        if not isinstance(messages, list):
+            messages = [messages]
+
         for message in messages:
             self.logger.log_message("Supported command: " + message, False)
             for peer_address in self.addresses:
@@ -78,7 +81,7 @@ class Peer(DatagramProtocol):
                     self.logger.log_message("Sending a message to: " + str(peer_address), False)
                     
                     # attach local timestamp
-                    message += f"!{self.lamport_clock}"
+                    message += f"^{self.lamport_clock}"
                     self.send_message(message, peer_address)
                 except Exception as e:
                     self.logger.log_message(f"Error sending message to {peer_address}: {e}", print_message=False)
@@ -96,7 +99,8 @@ class Peer(DatagramProtocol):
     def handle_other_datagrams(self, datagram: str, addr):
         """Handles messages from other peers and heartbeat manager"""
         try:
-            splitted_command = datagram.split("!")
+            lamport = datagram.split("^")
+            splitted_command = lamport[0].split("!")
 
             if splitted_command[0] == "HEARTBEAT":
                 self.heartbeat_manager.record_heartbeat(addr)
@@ -114,20 +118,17 @@ class Peer(DatagramProtocol):
                 self.logger.log_message(f"Command from {addr}: {splitted_command[0]}", False)
 
                 # check message logical clock value
-                if int(splitted_command[-1]) <= self.lamport_clock:
+                if int(lamport[-1]) <= self.lamport_clock:
                     self.logger.log_message(f"Received old data: {datagram}", False)
                     return
                 else:
-                    self.lamport_clock = int(splitted_command[-1])
-                
-                # remove logical clock from the received message
-                splitted_command.pop()
-                datagram = "!".join(splitted_command)
+                    self.lamport_clock = int(lamport[-1])
+
+                command = "!".join(splitted_command)
                 sender_index = self.get_peer_index(addr)
                 if sender_index is None:
                     return
-                print("sender index: " + str(sender_index))
-                messages_to_send = self.gameplay.handle_incoming_commands(datagram, sender_index)
+                messages_to_send = self.gameplay.handle_incoming_commands(command, sender_index)
                 if messages_to_send:
                     if not isinstance(messages_to_send, list):
                         messages_to_send = [messages_to_send]
@@ -166,6 +167,7 @@ class Peer(DatagramProtocol):
 
             if self.gameplay.own_turn_identifier == -1:
                 self.gameplay.update_order_number(player_order_number)
+                self.logger.peer_number = player_order_number
 
             # cancel the current game
             self.gameplay.reset_gameplay_variables()
@@ -219,9 +221,11 @@ class Peer(DatagramProtocol):
                 pass
 
             if disconnected_peer_index is not None:
-                self.gameplay.synchronize_turn_orders(disconnected_peer_index, self.addresses)
                 self.gameplay.synchronize_passes(disconnected_peer_index)
                 self.gameplay.synchronize_points(disconnected_peer_index)
+                response = self.gameplay.synchronize_turn_orders(disconnected_peer_index, self.addresses)
+                if response:
+                    self._log_and_send_messages([response])
 
             if disconnected_peer in self.addresses:
                 self.addresses.remove(disconnected_peer)
@@ -267,5 +271,8 @@ def peer_start():
 if __name__ == '__main__':
     port = peer_start()
     print(f"Using port number: {port}")
-    reactor.listenUDP(port, Peer('localhost', port))
+    address = input("Enter the IP address of the server: ")
+    if address == "":
+        address = "localhost"
+    reactor.listenUDP(port, Peer(address, port))
     reactor.run()

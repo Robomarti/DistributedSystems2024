@@ -1,5 +1,4 @@
 import random
-from collections import OrderedDict
 from typing import List, Tuple, Optional
 from logger import Logger
 
@@ -57,6 +56,10 @@ class Gameplay:
 
         if upper_input == "CHAT":
             return self.chat_input(splitted_input)
+        
+        if self.is_my_turn() and self.has_current_turn_passed():
+            return self.pass_turn_input()
+
         if upper_input == "DRAW_CARD":
             return self.draw_card_input()
         if upper_input == "PASS_TURN":
@@ -116,6 +119,10 @@ class Gameplay:
         if not self.is_game_initiated():
             self.logger.log_message("The game has not been initiated yet!", print_message=False)
             return "dont-send"
+
+        if self.has_everyone_passed():
+            self.end_game()
+            return "END_GAME!"
 
         if not self.is_my_turn():
             self.logger.log_message("It's not your turn!")
@@ -197,16 +204,19 @@ class Gameplay:
         self.logger.log_message(f"Peer drew card: {card_drawn}")
         self.add_points(card_drawn)
 
-        self.logger.log_message(f"Current length of peer's deck: {deck_length}", print_message=False)
+        self.logger.log_message(f"Current length of peer's deck: {deck_length}", False)
 
         if card_drawn in self.deck:
             drawn_card_index = self.deck.index(card_drawn)
             self.deck = self.deck[drawn_card_index + 1:]
         else:
-            self.logger.log_message("Card not found in deck; possible desynchronization")
+            self.logger.log_message("Card not found in deck; possible desynchronization", False)
             resulting_commands.extend(["SYNC_ERROR!", "REQUEST_DECK"])
 
         if deck_length != len(self.deck):
+            self.logger.log_message("Detected different deck lengths.", False)
+            self.logger.log_message(f"Own deck length: {len(self.deck)}. Peer deck length: {deck_length}", False)
+            self.logger.log_message("Sending a sync error message", False)
             resulting_commands.extend(["SYNC_ERROR!", "REQUEST_DECK"])
 
         self.advance_player_turn(peer_index)
@@ -348,15 +358,19 @@ class Gameplay:
         # case in which disconnected peer was at the top of the dict
         if disconnected_peer_index == 0:
             self._synch_turn_top()
-            if self.is_my_turn():
+            if self.is_my_turn() and not self.has_current_turn_passed():
                 self.logger.log_message("It's now your turn!")
+            elif self.is_my_turn():
+                return self.pass_turn_input()
             return
 
         # case in which disconnected peer was at the bottom of the dict
         if disconnected_peer_index == len(all_addresses) - 1:
             self._synch_turn_bottom(disconnected_peer_index)
-            if self.is_my_turn():
+            if self.is_my_turn() and not self.has_current_turn_passed():
                 self.logger.log_message("It's now your turn!")
+            elif self.is_my_turn():
+                return self.pass_turn_input()
             return
 
         # ... and hopefully all other cases fall here
@@ -368,8 +382,11 @@ class Gameplay:
 
         self.connected_peers -= 1
 
-        if self.is_my_turn():
+        if self.is_my_turn() and not self.has_current_turn_passed():
             self.logger.log_message("It's now your turn!")
+        elif self.is_my_turn():
+            return self.pass_turn_input()
+        return None
 
     def _synch_turn_top(self):
         if self.current_turn == 0:
