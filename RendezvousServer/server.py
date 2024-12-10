@@ -1,13 +1,12 @@
 import os
 from twisted.internet.protocol import DatagramProtocol
 from twisted.internet import reactor
-from collections import OrderedDict
 from twisted.internet.task import LoopingCall
 
 class Server(DatagramProtocol):
     """Handles peers finding each other"""
     def __init__(self):
-        self.clients = OrderedDict()
+        self.clients = []
         self.last_recv = {}
 
     def startProtocol(self):
@@ -35,23 +34,23 @@ class Server(DatagramProtocol):
     def client_connection(self, addr):
         """Handle a new client connection"""
         if addr not in self.clients:
-            self.clients[addr] = None
+            self.clients.append(addr)
             print(f"Client connected: {addr}")
             self.player_order()
-            self.send_all(f"NEW_CLIENT!{addr[0]}:{addr[1]}", exclude=addr)
 
     def client_disconnection(self, addr):
         """Handle a client disconnection"""
         if addr in self.clients:
             print(f"Client disconnected: {addr}")
-            del self.clients[addr]
+            if addr in self.clients:
+                self.clients.remove(addr)
             del self.last_recv[addr] # Timeout disconnection
             self.player_order()
 
     def player_order(self):
         """Sends the current player order to clients"""
-        addresses = "!".join([f"{x[0]}:{x[1]}" for x in self.clients.keys()])
-        for index, client_addr in enumerate(self.clients.keys(), start=1):
+        addresses = "!".join([f"{x[0]}:{x[1]}" for x in self.clients])
+        for index, client_addr in enumerate(self.clients):
             message = f"PLAYER_ORDER!{index}!{addresses}"
             self.transport.write(message.encode("utf-8"), client_addr)
 

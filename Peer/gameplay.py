@@ -1,7 +1,7 @@
 import random
+from collections import OrderedDict
 from typing import List, Tuple, Optional
 from logger import Logger
-from collections import OrderedDict
 
 class Gameplay:
     """Handles all gameplay-related tasks."""
@@ -50,11 +50,10 @@ class Gameplay:
 
     def handle_input(self, user_input: str):
         """Handles input from the player."""
-        # splitted_input splits the input message by question mark
+        # splitted_input splits the input message by exclamation mark
         # e.g. DRAW_CARD!D2!11 -> ["DRAW_CARD", "D2", "11"]
         splitted_input = user_input.split("!")
         upper_input = splitted_input[0].upper()
-
         if upper_input == "CHAT":
             return self.chat_input(splitted_input)
         if upper_input == "DRAW_CARD":
@@ -62,6 +61,7 @@ class Gameplay:
         if upper_input == "PASS_TURN":
             return self.pass_turn_input()
         if upper_input == "INITIATE_GAME":
+            print(self.own_turn_identifier)
             self.initialize_points()
             self.initialize_passes()
             return self.initiate_game_input()
@@ -108,7 +108,7 @@ class Gameplay:
         card_drawn = self.deck.pop(0)
         self.add_points(card_drawn)
         result_message = f"DRAW_CARD!{card_drawn}!{len(self.deck)}"
-        self.advance_player_turn()
+        self.advance_player_turn(self.own_turn_identifier)
         return result_message
 
     def pass_turn_input(self) -> str:
@@ -123,7 +123,7 @@ class Gameplay:
 
         self.logger.log_message("Passed")
         self.passes[self.current_turn] = True
-        self.advance_player_turn()
+        self.advance_player_turn(self.own_turn_identifier)
         return "PASS_TURN!"
 
     def initiate_game_input(self) -> List[str]:
@@ -138,7 +138,7 @@ class Gameplay:
         deck_message = self.send_deck()
         return [deck_message]
 
-    def handle_incoming_commands(self, datagram: str) -> List[str]:
+    def handle_incoming_commands(self, datagram: str, peer_index: int) -> List[str]:
         """Handles the commands sent to connected peers (players)."""
         resulting_commands = []
         splitted_command = datagram.split("!")
@@ -152,9 +152,9 @@ class Gameplay:
             self.initialize_passes()
             self.create_deck_command(splitted_command)
         elif command == "DRAW_CARD":
-            resulting_commands.extend(self.draw_card_command(splitted_command))
+            resulting_commands.extend(self.draw_card_command(splitted_command, peer_index))
         elif command == "PASS_TURN":
-            self.pass_turn_command()
+            self.pass_turn_command(peer_index)
         elif command == "INVALID_ACTION":
             self.logger.log_message("Invalid action")
         elif command == "SYNC_ERROR":
@@ -176,7 +176,7 @@ class Gameplay:
         if self.is_my_turn() and self.has_current_turn_passed():
             self.logger.log_message("Automatically passed.")
             resulting_commands.append("PASS_TURN!")
-            self.advance_player_turn()
+            self.advance_player_turn(self.own_turn_identifier)
 
         return resulting_commands
 
@@ -189,7 +189,7 @@ class Gameplay:
         if self.current_turn == -1:
             self.current_turn = 0
 
-    def draw_card_command(self, splitted_command: List[str]) -> List[str]:
+    def draw_card_command(self, splitted_command: List[str], peer_index: int) -> List[str]:
         """Processes DRAW_CARD! command."""
         resulting_commands = []
         card_drawn = splitted_command[1]
@@ -209,14 +209,14 @@ class Gameplay:
         if deck_length != len(self.deck):
             resulting_commands.extend(["SYNC_ERROR!", "REQUEST_DECK"])
 
-        self.advance_player_turn()
+        self.advance_player_turn(peer_index)
         return resulting_commands
 
-    def pass_turn_command(self):
+    def pass_turn_command(self, peer_index: int):
         """Processes PASS_TURN! command."""
         self.logger.log_message("Peer passed their turn")
         self.passes[self.current_turn] = True
-        self.advance_player_turn()
+        self.advance_player_turn(peer_index)
 
     def has_current_turn_passed(self) -> bool:
         """Checks if the player whose turn it is has passed."""
@@ -230,11 +230,20 @@ class Gameplay:
         """Checks if the game has been initiated."""
         return bool(self.current_turn > -1)
 
-    def advance_player_turn(self):
-        """Advances the player's turn - should be called locally and remotely"""
-        self.current_turn += 1
-        if self.current_turn > self.connected_peers:
-            self.current_turn = 0
+    def advance_player_turn(self, peer_index: int):
+        """Sets the current_turn to advance from the peer who issued this function call.\n
+        Should be called locally and remotely"""
+        message_from_correct_peer = peer_index - self.current_turn == 0
+
+        if message_from_correct_peer:
+            self.current_turn += 1
+        else:
+            self.current_turn = peer_index+1
+
+        # keep current_turn in bounds
+        while self.current_turn > self.connected_peers:
+            self.current_turn -= (self.connected_peers + 1)
+
         if self.is_my_turn():
             self.logger.log_message("It's now your turn!")
         self.logger.log_message(str(self.current_turn) + "th player's turn", False)
@@ -290,11 +299,23 @@ class Gameplay:
         """Calculate which player won"""
         for i in self.losers:
             self.points[i] = 0
-        key_for_most_points = max(self.points, key= lambda x: self.points[x])
-        if key_for_most_points == self.own_turn_identifier:
+
+        most_points = 0
+        draw = False
+        for key in self.points:
+            if self.points[key] > most_points:
+                draw = False
+                most_points = self.points[key]
+            elif self.points[key] == most_points:
+                draw = True
+                most_points = self.points[key]
+
+        if draw:
+            self.logger.log_message("Draw!")
+        elif self.points[self.own_turn_identifier] == most_points:
             self.logger.log_message("You won!")
         else:
-            self.logger.log_message("Player " + str(key_for_most_points) + " won!")
+            self.logger.log_message("You lost!")
 
     def has_everyone_passed(self):
         """Checks if everyone has passed"""
@@ -319,7 +340,7 @@ class Gameplay:
                 self.points[i] = 0
         self.logger.log_message("Completed self.points: " + str(self.points), False)
 
-    def synchronize_turn_orders(self, disconnected_peer_index: int, all_addresses: OrderedDict):
+    def synchronize_turn_orders(self, disconnected_peer_index: int, all_addresses: List):
         """
         Adjusts own_turn_identifier based on the index of the disconnected peer
         """
@@ -339,7 +360,7 @@ class Gameplay:
             return
 
         # ... and hopefully all other cases fall here
-        for index, (peer, _) in enumerate(all_addresses.items()):
+        for index, (peer, _) in enumerate(all_addresses):
             if peer == self.player_id:
                 if index > disconnected_peer_index:
                     self.own_turn_identifier -= 1
