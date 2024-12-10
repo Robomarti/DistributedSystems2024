@@ -28,8 +28,11 @@ class Server(DatagramProtocol):
 
         if datagram == "ready":
             self.client_connection(addr)
-        elif datagram == "disconnect":
-            self.client_disconnection(addr)
+        else:
+            splitted_message = datagram.split("!")
+            if splitted_message[0] == "disconnect":
+                self.client_disconnection(splitted_message[1])
+                self.player_order()
 
     def client_connection(self, addr):
         """Handle a new client connection"""
@@ -40,12 +43,14 @@ class Server(DatagramProtocol):
 
     def client_disconnection(self, addr):
         """Handle a client disconnection"""
-        if addr in self.clients:
-            print(f"Client disconnected: {addr}")
-            if addr in self.clients:
-                self.clients.remove(addr)
-            del self.last_recv[addr] # Timeout disconnection
-            self.player_order()
+        # if addr in self.clients doesnt work for some reason
+        for client in self.clients:
+            if str(addr) == str(client):
+                print(f"Client disconnected: {client}")
+                self.clients.remove(client)
+                del self.last_recv[client] # Timeout disconnection
+                self.player_order()
+                break
 
     def player_order(self):
         """Sends the current player order to clients"""

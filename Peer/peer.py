@@ -37,9 +37,15 @@ class Peer(DatagramProtocol):
             self.logger.log_message(f"Error notifying server about disconnection: {e}", print_message=False)
         self.heartbeat_manager.stop()
 
-    def send_message(self, message, target_addr):
+    def send_message(self, message: str, target_addr):
         """send message to target_addr"""
         self.transport.write(message.encode('utf-8'), target_addr)
+    
+    def notify_server_of_disconnection(self, peer_address):
+        """Request new turn order information from the server"""
+        self.send_message("disconnect!" + str(peer_address), self.server)
+        self.gameplay.reset_gameplay_variables()
+        self.logger.log_message("A peer disconnected, ending the game.")
 
     def handle_type_command(self):
         """Handles gathering user input and sending messages to connected peers"""
@@ -76,7 +82,7 @@ class Peer(DatagramProtocol):
                     continue
                 try:
                     self.logger.log_message("Sending a message to: " + str(peer_address), False)
-                    
+
                     # attach local timestamp
                     message += f"^{self.lamport_clock}"
                     self.send_message(message, peer_address)
@@ -101,14 +107,6 @@ class Peer(DatagramProtocol):
 
             if splitted_command[0] == "HEARTBEAT":
                 self.heartbeat_manager.record_heartbeat(addr)
-                return
-
-            if splitted_command[0] == "PEER_DISCONNECTED":
-                try:
-                    disconnected_peer = (splitted_command[1], int(splitted_command[2]))
-                    self.handle_peer_disconnection(disconnected_peer)
-                except Exception as e:
-                    self.logger.log_message(f"Error processing PEER_DISCONNECTED: {str(e)}", False)
                 return
 
             if splitted_command[0].upper() in self.gameplay.supported_incoming_commands:
@@ -144,9 +142,6 @@ class Peer(DatagramProtocol):
         if datagram_data[0] == "PLAYER_ORDER":
             self.handle_player_order(datagram_data)
 
-        # new
-        elif datagram_data[0] == "PEER_DISCONNECTED":
-            self.handle_server_disconnection(datagram_data)
         # If this is called here, the first player can't issue commands
         # until at least 1 other peer is connected
         if not self.send_message_thread_active and self.addresses:
@@ -206,39 +201,6 @@ class Peer(DatagramProtocol):
                 f"Peer {peer_address} already exists in addresses or is self.", print_message=False
             )
             return False
-
-    def handle_peer_disconnection(self, disconnected_peer):
-        """Handles logic when a peer disconnects"""
-        try:
-            disconnected_peer_index = None
-            try:
-                self.logger.log_message(f"Disconnected peer: {disconnected_peer}", False)
-                disconnected_peer_index = self.addresses.index(disconnected_peer)
-            except ValueError as _: # sometimes peers also can try to access the same value
-                pass
-
-            if disconnected_peer_index is not None:
-                self.gameplay.synchronize_turn_orders(disconnected_peer_index, self.addresses)
-                self.gameplay.synchronize_passes(disconnected_peer_index)
-                self.gameplay.synchronize_points(disconnected_peer_index)
-
-            if disconnected_peer in self.addresses:
-                self.addresses.remove(disconnected_peer)
-        except KeyError as _:
-            pass # all peers will try to access the key, which may not exist, so this is passed
-        except Exception as e:
-            self.logger.log_message(f"Error handling PEER_DISCONNECTED: {str(e)}")
-
-    def handle_server_disconnection(self, datagram_data):
-        """Handle disconnection messages from the server."""
-        try:
-            disconnected_peer_ip = datagram_data[1]
-            disconnected_peer_port = int(datagram_data[2])
-            disconnected_peer = (disconnected_peer_ip, disconnected_peer_port)
-            self.handle_peer_disconnection(disconnected_peer)
-            self.logger.log_message(f"Peer {disconnected_peer} disconnected (by server).", print_message=False)
-        except (IndexError, ValueError) as e:
-            self.logger.log_message(f"Error processing server disconnection message: {e}", False)
 
     def get_peer_index(self, addr):
         """Tries to get the turn index of a peer"""

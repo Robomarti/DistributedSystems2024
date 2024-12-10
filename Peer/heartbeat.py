@@ -100,7 +100,7 @@ class HeartbeatManager:
                     disconnected_peers.append(peer_address)
 
             for peer_address in disconnected_peers:
-                self.notify_disconnection_to_peers(peer_address)
+                self.peer.notify_server_of_disconnection(peer_address)
 
             self.check_loop = reactor.callLater(
                 self.heartbeat_interval, self.check_connections)
@@ -110,26 +110,6 @@ class HeartbeatManager:
                 print_message=True)
             self.check_loop = reactor.callLater(
                 self.heartbeat_interval, self.check_connections)
-
-    def notify_disconnection_to_peers(self, peer_address: Tuple[str, int]):
-        """Notify peers about a disconnect."""
-        if peer_address in self.peer.addresses:
-            self.peer.logger.log_message(
-                "Peer disconnected due to heartbeat timeout.", print_message=True
-            )
-            self.peer.logger.log_message(f"{peer_address} timeouted.",False)
-
-            self.peer.addresses.remove(peer_address)
-
-            message = f"PEER_DISCONNECTED!{peer_address[0]}!{peer_address[1]}"
-            for addr in self.peer.addresses:
-                try:
-                    self.peer.transport.write(message.encode("utf-8"), addr)
-                except Exception as e:
-                    self.peer.logger.log_message(
-                        f"Error notifying {addr} about disconnect: {e}",
-                        print_message=False
-                    )
 
     def record_heartbeat(self, peer_address: Tuple[str, int]):
         """Record that we received a heartbeat from a peer"""
