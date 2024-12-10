@@ -135,7 +135,12 @@ class Peer(DatagramProtocol):
 
                     self._log_and_send_messages(messages_to_send)
             else:
-                self.logger.log_message(f"Message from {addr}: {datagram}")
+                chat_message = "!".join(splitted_command)
+                sender_index = self.get_peer_index(addr)
+                if sender_index is None:
+                    sender_index = ""
+                self.logger.log_message(f"Message from peer {sender_index}: {chat_message}")
+                self.logger.log_message(f"Message from {addr}: {datagram}", False)
                 self.logger.log_message("Type a command: ", print_message=True)
 
         except Exception as e:
