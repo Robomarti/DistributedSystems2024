@@ -196,17 +196,19 @@ class Gameplay:
         self.logger.log_message(f"Peer drew card: {card_drawn}")
         self.add_points(card_drawn)
 
-        self.logger.log_message(f"Current length of peer's deck: {deck_length}", print_message=False)
+        self.logger.log_message(f"Current length of peer's deck: {deck_length}", False)
 
         if card_drawn in self.deck:
             drawn_card_index = self.deck.index(card_drawn)
             self.deck = self.deck[drawn_card_index + 1:]
         else:
-            self.logger.log_message("Card not found in deck; possible desynchronization")
+            self.logger.log_message("Card not found in deck; possible desynchronization", False)
             resulting_commands.extend(["SYNC_ERROR!", "REQUEST_DECK"])
 
         if deck_length != len(self.deck):
-            self.logger.log_message("Different deck lengths, desynchronization")
+            self.logger.log_message("Detected different deck lengths.", False)
+            self.logger.log_message(f"Own deck length: {len(self.deck)}. Peer deck length: {deck_length}", False)
+            self.logger.log_message("Sending a sync error message", False)
             resulting_commands.extend(["SYNC_ERROR!", "REQUEST_DECK"])
 
         self.advance_player_turn(peer_index)
