@@ -10,15 +10,12 @@ from heartbeat import HeartbeatManager
 class Peer(DatagramProtocol):
     """Handles message sending and receiving"""
     def __init__(self, host, own_port):
-        hostname = socket.gethostname()
-        IPAddr = socket.gethostbyname(hostname)
-        self.id = (IPAddr, own_port)
-
         if host == "localhost":
             host = "127.0.0.1"
-        self.server = (host, 9999)
-    
+
+        self.id = ("127.0.0.1", own_port)
         self.addresses = [] # for some reason, this array should not be given a type
+        self.server = (host, 9999)
         self.send_message_thread_active = False
         self.logger = Logger(self.id)
         self.gameplay = Gameplay(self.logger, self.id)
