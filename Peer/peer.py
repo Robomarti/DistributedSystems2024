@@ -78,7 +78,7 @@ class Peer(DatagramProtocol):
                     self.logger.log_message("Sending a message to: " + str(peer_address), False)
                     
                     # attach local timestamp
-                    message += f"!{self.lamport_clock}"
+                    message += f"^{self.lamport_clock}"
                     self.send_message(message, peer_address)
                 except Exception as e:
                     self.logger.log_message(f"Error sending message to {peer_address}: {e}", print_message=False)
@@ -96,7 +96,8 @@ class Peer(DatagramProtocol):
     def handle_other_datagrams(self, datagram: str, addr):
         """Handles messages from other peers and heartbeat manager"""
         try:
-            splitted_command = datagram.split("!")
+            lamport = datagram.split("^")
+            splitted_command = lamport[0].split("!")
 
             if splitted_command[0] == "HEARTBEAT":
                 self.heartbeat_manager.record_heartbeat(addr)
@@ -114,7 +115,7 @@ class Peer(DatagramProtocol):
                 self.logger.log_message(f"Command from {addr}: {splitted_command[0]}", False)
 
                 # check message logical clock value
-                if int(splitted_command[-1]) <= self.lamport_clock:
+                if int(lamport[-1]) <= self.lamport_clock:
                     self.logger.log_message(f"Received old data: {datagram}", False)
                     return
                 else:
