@@ -52,9 +52,9 @@ class Server(DatagramProtocol):
             self.clients.remove(addr)  # Remove the client from the list
             if addr in self.last_recv:
                 del self.last_recv[addr]  # Remove the client from the last receive list
-            self.player_order() # Send the updated player order to clients
             disconnect_message = f"PEER_DISCONNECTED!{addr[0]}!{addr[1]}"
             self.send_all(disconnect_message)
+            self.player_order()  # Send the updated player order to clients
         else:
             print(f"Client already disconnected: {addr}")
 

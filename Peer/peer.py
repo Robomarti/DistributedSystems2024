@@ -19,7 +19,7 @@ class Peer(DatagramProtocol):
         self.send_message_thread_active = False
         self.logger = Logger(self.id)
         self.gameplay = Gameplay(self.logger, self.id)
-        self.heartbeat_manager = HeartbeatManager(self)
+        # self.heartbeat_manager = HeartbeatManager(self)
         self.lamport_clock: int = 0
         self.ui_callback = None
 
@@ -38,7 +38,7 @@ class Peer(DatagramProtocol):
             self.logger.log_message("Sent disconnect message to server.", print_message=False)
         except Exception as e:
             self.logger.log_message(f"Error notifying server about disconnection: {e}", print_message=False)
-        self.heartbeat_manager.stop()
+        # self.heartbeat_manager.stop()
 
     def send_heartbeat_to_server(self):
         """启动每5秒向服务器发送heartbeat的定时任务"""
@@ -175,7 +175,6 @@ class Peer(DatagramProtocol):
         datagram_data = datagram.split("!")
         if datagram_data[0] == "PLAYER_ORDER":
             self.handle_player_order(datagram_data)
-
         # new
         elif datagram_data[0] == "PEER_DISCONNECTED":
             self.handle_server_disconnection(datagram_data)
@@ -184,7 +183,7 @@ class Peer(DatagramProtocol):
         if not self.send_message_thread_active and self.addresses:
             reactor.callInThread(self.handle_type_command)
             self.send_message_thread_active = True
-            self.heartbeat_manager.start()
+            # self.heartbeat_manager.start()
 
     def handle_player_order(self, datagram_data):
         """Handles the player order message from the server"""
@@ -194,8 +193,9 @@ class Peer(DatagramProtocol):
             if player_order_number == 0:
                 self.logger.log_message("You are the first player online, waiting for connections")
 
-            if self.gameplay.own_turn_identifier == -1:
-                self.gameplay.update_order_number(player_order_number)
+            # if self.gameplay.own_turn_identifier == -1:
+            #     self.gameplay.update_order_number(player_order_number)
+            self.gameplay.update_order_number(player_order_number) # 每次都更新order？
 
             # cancel the current game
             self.gameplay.reset_gameplay_variables()
