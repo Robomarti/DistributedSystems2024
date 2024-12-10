@@ -56,6 +56,10 @@ class Gameplay:
 
         if upper_input == "CHAT":
             return self.chat_input(splitted_input)
+        
+        if self.is_my_turn() and self.has_current_turn_passed():
+            return self.pass_turn_input()
+
         if upper_input == "DRAW_CARD":
             return self.draw_card_input()
         if upper_input == "PASS_TURN":
@@ -115,6 +119,10 @@ class Gameplay:
         if not self.is_game_initiated():
             self.logger.log_message("The game has not been initiated yet!", print_message=False)
             return "dont-send"
+
+        if self.has_everyone_passed():
+            self.end_game()
+            return "END_GAME!"
 
         if not self.is_my_turn():
             self.logger.log_message("It's not your turn!")
@@ -350,15 +358,19 @@ class Gameplay:
         # case in which disconnected peer was at the top of the dict
         if disconnected_peer_index == 0:
             self._synch_turn_top()
-            if self.is_my_turn():
+            if self.is_my_turn() and not self.has_current_turn_passed():
                 self.logger.log_message("It's now your turn!")
+            elif self.is_my_turn():
+                return self.pass_turn_input()
             return
 
         # case in which disconnected peer was at the bottom of the dict
         if disconnected_peer_index == len(all_addresses) - 1:
             self._synch_turn_bottom(disconnected_peer_index)
-            if self.is_my_turn():
+            if self.is_my_turn() and not self.has_current_turn_passed():
                 self.logger.log_message("It's now your turn!")
+            elif self.is_my_turn():
+                return self.pass_turn_input()
             return
 
         # ... and hopefully all other cases fall here
@@ -370,8 +382,11 @@ class Gameplay:
 
         self.connected_peers -= 1
 
-        if self.is_my_turn():
+        if self.is_my_turn() and not self.has_current_turn_passed():
             self.logger.log_message("It's now your turn!")
+        elif self.is_my_turn():
+            return self.pass_turn_input()
+        return None
 
     def _synch_turn_top(self):
         if self.current_turn == 0:

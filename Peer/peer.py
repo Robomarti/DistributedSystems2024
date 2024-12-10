@@ -69,6 +69,9 @@ class Peer(DatagramProtocol):
         # increment logical clock
         self.lamport_clock += 1
 
+        if not isinstance(messages, list):
+            messages = [messages]
+
         for message in messages:
             self.logger.log_message("Supported command: " + message, False)
             for peer_address in self.addresses:
@@ -218,9 +221,11 @@ class Peer(DatagramProtocol):
                 pass
 
             if disconnected_peer_index is not None:
-                self.gameplay.synchronize_turn_orders(disconnected_peer_index, self.addresses)
                 self.gameplay.synchronize_passes(disconnected_peer_index)
                 self.gameplay.synchronize_points(disconnected_peer_index)
+                response = self.gameplay.synchronize_turn_orders(disconnected_peer_index, self.addresses)
+                if response:
+                    self._log_and_send_messages([response])
 
             if disconnected_peer in self.addresses:
                 self.addresses.remove(disconnected_peer)
