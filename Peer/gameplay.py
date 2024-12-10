@@ -36,7 +36,6 @@ class Gameplay:
         self.points = {}
         self.passes = {}
         self.losers: List[int] = []
-        self.logger.log_message("Cleared gameplay values, ready to start another game.")
 
     def create_deck(self, deck_values: Optional[List[str]] = None):
         """Handles creating or importing the deck"""
@@ -342,3 +341,67 @@ class Gameplay:
             if not i in self.points:
                 self.points[i] = 0
         self.logger.log_message("Completed self.points: " + str(self.points), False)
+
+    def synchronize_turn_orders(self, disconnected_peer_index: int, all_addresses: List):
+        """
+        Adjusts own_turn_identifier based on the index of the disconnected peer
+        """
+
+        # case in which disconnected peer was at the top of the dict
+        if disconnected_peer_index == 0:
+            self._synch_turn_top()
+            if self.is_my_turn():
+                self.logger.log_message("It's now your turn!")
+            return
+
+        # case in which disconnected peer was at the bottom of the dict
+        if disconnected_peer_index == len(all_addresses) - 1:
+            self._synch_turn_bottom(disconnected_peer_index)
+            if self.is_my_turn():
+                self.logger.log_message("It's now your turn!")
+            return
+
+        # ... and hopefully all other cases fall here
+        for index, (peer, _) in enumerate(all_addresses):
+            if peer == self.player_id:
+                if index > disconnected_peer_index:
+                    self.own_turn_identifier -= 1
+                break
+
+        self.connected_peers -= 1
+
+        if self.is_my_turn():
+            self.logger.log_message("It's now your turn!")
+
+    def _synch_turn_top(self):
+        if self.current_turn == 0:
+            self.own_turn_identifier -= 1
+            self.connected_peers -= 1
+        else:
+            self.own_turn_identifier -= 1
+            self.current_turn -= 1
+            self.connected_peers -= 1
+
+    def _synch_turn_bottom(self, disconnected_peer_index):
+        if self.connected_peers == 1:
+            self.current_turn -= 1
+            self.connected_peers -= 1
+        elif self.connected_peers == disconnected_peer_index:
+            self.current_turn = 0
+            self.connected_peers -= 1
+        else:
+            self.connected_peers -= 1
+
+    def synchronize_passes(self, disconnected_peer_index: int):
+        """Removes the disconnected peer's data from the passes dictionary and re-indexes the keys accordingly."""
+        if self.passes:
+            if disconnected_peer_index in self.passes:
+                self.passes.pop(disconnected_peer_index)
+            self.passes = {index: value for index, value in enumerate(self.passes.values())}
+
+    def synchronize_points(self, disconnected_peer_index: int):
+        """Removes the disconnected peer's data from the points dictionary and re-indexes the keys accordingly."""
+        if self.points:
+            if disconnected_peer_index in self.points:
+                self.points.pop(disconnected_peer_index)
+            self.points = {index: value for index, value in enumerate(self.points.values())}
