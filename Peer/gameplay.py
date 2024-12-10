@@ -1,5 +1,4 @@
 import random
-from collections import OrderedDict
 from typing import List, Tuple, Optional
 from logger import Logger
 
@@ -207,6 +206,7 @@ class Gameplay:
             resulting_commands.extend(["SYNC_ERROR!", "REQUEST_DECK"])
 
         if deck_length != len(self.deck):
+            self.logger.log_message("Different deck lengths, desynchronization")
             resulting_commands.extend(["SYNC_ERROR!", "REQUEST_DECK"])
 
         self.advance_player_turn(peer_index)

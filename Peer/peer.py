@@ -126,7 +126,6 @@ class Peer(DatagramProtocol):
                 sender_index = self.get_peer_index(addr)
                 if sender_index is None:
                     return
-                print("sender index: " + str(sender_index))
                 messages_to_send = self.gameplay.handle_incoming_commands(datagram, sender_index)
                 if messages_to_send:
                     if not isinstance(messages_to_send, list):
