@@ -13,9 +13,9 @@ class Peer(DatagramProtocol):
         if host == "localhost":
             host = "127.0.0.1"
 
-        self.id = (host, own_port)
+        self.id = ("127.0.0.1", own_port)
         self.addresses = [] # for some reason, this array should not be given a type
-        self.server = ("127.0.0.1", 9999)
+        self.server = (host, 9999)
         self.send_message_thread_active = False
         self.logger = Logger(self.id)
         self.gameplay = Gameplay(self.logger, self.id)
