@@ -13,7 +13,7 @@ class Gameplay:
         self.deck: List[str] = []
         self.current_turn = -1 # current_turn is -1 to mark that the game is not active yet
         self.own_turn_identifier = -1
-        self.points = {}
+        self.points = {} # points of each player
         self.passes = {}
         self.losers: List[int] = [] # this is used if someone's point count goes over 21
 

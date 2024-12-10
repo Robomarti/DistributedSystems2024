@@ -20,7 +20,7 @@ class BlackjackUI:
         self.running = True
         self.log_messages = []
         self.status_message = "Waiting for players..."
-        self.state = "waiting"
+        self.state = "waiting"  # state: waiting, game
 
         # register
         self.peer.register_ui_callback(self.update_ui_state)
@@ -38,6 +38,7 @@ class BlackjackUI:
         }
 
     def update_ui_state(self, command: str):
+        """Update UI state based on the command received from the peer."""
         if command == "INITIATE_GAME":
             if self.state != "game":
                 self.status_message = "Game started!"
@@ -92,21 +93,24 @@ class BlackjackUI:
 
 
     def handle_event(self, event):
+        """Handle pygame events."""
         if event.type == QUIT:
-            self.running = False
+            self.handle_event_quit()
         elif event.type == MOUSEBUTTONDOWN:
             if self.state == "waiting":
+                # check if the initiate game button was clicked
                 if self.buttons["initiate_game"].collidepoint(event.pos):
+                    # check if there are enough players to start the game
                     if len(self.peer.addresses) <= 1:
                         self.status_message = "Waiting for other players to join..."
                         self.log_messages.append("Cannot start the game: no other players connected.")
                     else:
                         if self.state != "game":
-                            key = "initiate_game"
-                            message = self.peer.gameplay.handle_input(key.upper())
+                            key = "INITIATE_GAME"
+                            message = self.peer.gameplay.handle_input(key)
                             if message == "dont-send":
                                 self.log_messages.append(
-                                    f"Cannot execute: {key.upper()}. Check game status or permissions.")
+                                    f"Cannot execute: {key}. Check game status or permissions.")
                             elif message:
                                 self.send_message_to_peers("INITIATE_GAME")
                                 self.log_messages.append("Game initialized! Broadcasting INITIATE_GAME.")
@@ -122,6 +126,11 @@ class BlackjackUI:
                         elif message:
                             self.send_message_to_peers(message)
                             self.log_messages.append(f"Command executed: {key.upper()}")
+
+    def handle_event_quit(self):
+        """Handle the quit event."""
+        self.peer.stopProtocol() # stop the peer protocol
+        self.running = False # stop the UI loop
 
     def send_message_to_peers(self, message_to_send):
         if not message_to_send or message_to_send == "dont-send":

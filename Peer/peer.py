@@ -28,20 +28,29 @@ class Peer(DatagramProtocol):
     def startProtocol(self):
         """Send a message to the server to get connected to other peers"""
         self.send_message("ready", self.server)
+        self.send_heartbeat_to_server()
 
     def stopProtocol(self):
         """Notify the server about disconnection and stop heartbeat."""
         try:
+            print("Sending disconnect message to server.")
             self.send_message("disconnect", self.server)
             self.logger.log_message("Sent disconnect message to server.", print_message=False)
         except Exception as e:
             self.logger.log_message(f"Error notifying server about disconnection: {e}", print_message=False)
         self.heartbeat_manager.stop()
 
+    def send_heartbeat_to_server(self):
+        """启动每5秒向服务器发送heartbeat的定时任务"""
+        self.send_message("HEARTBEAT", self.server)
+        reactor.callLater(5, self.send_heartbeat_to_server)  # 每5秒调用一次
+
     def is_first_player(self):
+        """Returns True if the peer is the first player"""
         return self.addresses and self.id == self.addresses[0]
 
     def register_ui_callback(self, callback):
+        """Registers a callback function for UI updates"""
         self.ui_callback = callback
 
     def send_message(self, message, target_addr):
