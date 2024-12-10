@@ -120,14 +120,12 @@ class Peer(DatagramProtocol):
                     return
                 else:
                     self.lamport_clock = int(lamport[-1])
-                
-                # remove logical clock from the received message
-                splitted_command.pop()
-                datagram = "!".join(splitted_command)
+
+                command = "!".join(splitted_command)
                 sender_index = self.get_peer_index(addr)
                 if sender_index is None:
                     return
-                messages_to_send = self.gameplay.handle_incoming_commands(datagram, sender_index)
+                messages_to_send = self.gameplay.handle_incoming_commands(command, sender_index)
                 if messages_to_send:
                     if not isinstance(messages_to_send, list):
                         messages_to_send = [messages_to_send]
