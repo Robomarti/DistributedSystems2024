@@ -165,6 +165,7 @@ class Peer(DatagramProtocol):
 
             if self.gameplay.own_turn_identifier == -1:
                 self.gameplay.update_order_number(player_order_number)
+                self.logger.peer_number = player_order_number
 
             # cancel the current game
             self.gameplay.reset_gameplay_variables()
