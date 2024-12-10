@@ -119,7 +119,7 @@ class Peer(DatagramProtocol):
                     self.logger.log_message(f"Received old data: {datagram}", False)
                     return
                 else:
-                    self.lamport_clock = int(splitted_command[-1])
+                    self.lamport_clock = int(lamport[-1])
                 
                 # remove logical clock from the received message
                 splitted_command.pop()
