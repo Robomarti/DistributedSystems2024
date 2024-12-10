@@ -362,8 +362,8 @@ class Gameplay:
             return
 
         # ... and hopefully all other cases fall here
-        for index, (peer, _) in enumerate(all_addresses):
-            if peer == self.player_id:
+        for index, (ip, port) in enumerate(all_addresses):
+            if (ip, port) == self.player_id:
                 if index > disconnected_peer_index:
                     self.own_turn_identifier -= 1
                 break
