@@ -228,5 +228,8 @@ def peer_start():
 if __name__ == '__main__':
     port = peer_start()
     print(f"Using port number: {port}")
-    reactor.listenUDP(port, Peer('localhost', port))
+    address = input("Enter the IP address of your LAN: ")
+    if address == "":
+        address = "localhost"
+    reactor.listenUDP(port, Peer(address, port))
     reactor.run()
