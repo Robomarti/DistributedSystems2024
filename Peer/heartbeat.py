@@ -16,7 +16,7 @@ class HeartbeatManager:
 
     def __init__(self, peer: 'Peer', heartbeat_interval: float = 1.0,
                  timeout: float = 2.0):
-        self.peer = peer # we can't import the Peer type, because that would lead to circular import
+        self.peer = peer  # we can't import the Peer type, because that would lead to circular import
         self.heartbeat_interval = heartbeat_interval
         self.timeout = timeout
         self.last_heartbeats: Dict[Tuple[str, int], float] = {}
@@ -117,7 +117,7 @@ class HeartbeatManager:
             self.peer.logger.log_message(
                 "Peer disconnected due to heartbeat timeout.", print_message=True
             )
-            self.peer.logger.log_message(f"{peer_address} timeouted.",False)
+            self.peer.logger.log_message(f"{peer_address} timeouted.", False)
 
             self.peer.addresses.remove(peer_address)
 

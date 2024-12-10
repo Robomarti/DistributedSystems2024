@@ -7,16 +7,14 @@ from gameplay import Gameplay
 from logger import Logger
 from heartbeat import HeartbeatManager
 
-
 class Peer(DatagramProtocol):
     """Handles message sending and receiving"""
-
     def __init__(self, host, own_port):
         if host == "localhost":
             host = "127.0.0.1"
 
         self.id = (host, own_port)
-        self.addresses = []  # for some reason, this array should not be given a type
+        self.addresses = [] # for some reason, this array should not be given a type
         self.server = ("127.0.0.1", 9999)
         self.send_message_thread_active = False
         self.logger = Logger(self.id)
@@ -95,7 +93,7 @@ class Peer(DatagramProtocol):
     def datagramReceived(self, datagram: bytes, addr):
         datagram = datagram.decode("utf-8")
         if "HEARTBEAT" not in datagram:
-            self.logger.log_message(f"Received datagram: {datagram}", False)
+            print("Received datagram: ", datagram)
         if addr == self.server:
             self.handle_datagram_from_server(datagram)
             return
@@ -209,9 +207,8 @@ class Peer(DatagramProtocol):
         except (IndexError, ValueError) as e:
             self.logger.log_message(f"Error processing player order message: {e}", print_message=False)
 
-    # maybe this function should not be used, just receive the whole list of peer addresses from the server
     def add_peer_address(self, peer_address):
-        """Adds a peer address to self.addresses."""
+        """Adds a peer address to both OrderedDicts"""
         if not isinstance(peer_address, tuple) or len(peer_address) != 2:
             self.logger.log_message(f"Invalid peer address format: {peer_address}", print_message=False)
             return False
@@ -274,25 +271,21 @@ class Peer(DatagramProtocol):
             self.logger.log_message(f"Could not get message sender index, error: {e}")
             return None
 
-
-    def peer_start(self):
-        """Finds an available port for the peer to use"""
-        os.system('clear')
-        print("Starting peer...")
-        while True:
-            port = random.randint(1024, 65535)
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                try:
-                    s.bind(('localhost', port))
-                    return port
-                except OSError:
-                    continue
-
+def peer_start():
+    """Finds an available port for the peer to use"""
+    os.system('clear')
+    print("Starting peer...")
+    while True:
+        port = random.randint(1024, 65535)
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            try:
+                s.bind(('localhost', port))
+                return port
+            except OSError:
+                continue
 
 if __name__ == '__main__':
-    port = random.randint(1024, 65535)
-    peer = Peer('localhost', port)
-    port = peer.peer_start()
+    port = peer_start()
     print(f"Using port number: {port}")
-    reactor.listenUDP(port, peer)
+    reactor.listenUDP(port, Peer('localhost', port))
     reactor.run()
