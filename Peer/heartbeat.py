@@ -119,8 +119,6 @@ class HeartbeatManager:
             )
             self.peer.logger.log_message(f"{peer_address} timeouted.",False)
 
-            self.peer.addresses.remove(peer_address)
-
             message = f"PEER_DISCONNECTED!{peer_address[0]}!{peer_address[1]}"
             for addr in self.peer.addresses:
                 try:
