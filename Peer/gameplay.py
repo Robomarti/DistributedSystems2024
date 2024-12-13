@@ -350,12 +350,10 @@ class Gameplay:
                 self.points[i] = 0
         self.logger.log_message("Completed self.points: " + str(self.points), False)
 
-    def synchronize_turn_orders(self, disconnected_peer_index: int, all_addresses: List):
-        """
-        Adjusts own_turn_identifier based on the index of the disconnected peer
-        """
+    def synchronize_turn_orders(self, disconnected_peer_index: int, addresses: List):
+        """Adjusts the states related to the turn orders based on the position of the disconnected peer"""
 
-        # case in which disconnected peer was at the top of the dict
+        # case in which disconnected peer was the first element of the list
         if disconnected_peer_index == 0:
             self._synch_turn_top()
             if self.is_my_turn() and not self.has_current_turn_passed():
@@ -364,8 +362,8 @@ class Gameplay:
                 return self.pass_turn_input()
             return
 
-        # case in which disconnected peer was at the bottom of the dict
-        if disconnected_peer_index == len(all_addresses) - 1:
+        # case in which disconnected peer was the last element of the list
+        if disconnected_peer_index == len(addresses) - 1:
             self._synch_turn_bottom(disconnected_peer_index)
             if self.is_my_turn() and not self.has_current_turn_passed():
                 self.logger.log_message("It's now your turn!")
@@ -374,7 +372,7 @@ class Gameplay:
             return
 
         # ... and hopefully all other cases fall here
-        for index, (ip, port) in enumerate(all_addresses):
+        for index, (ip, port) in enumerate(addresses):
             if (ip, port) == self.player_id:
                 if index > disconnected_peer_index:
                     self.own_turn_identifier -= 1
@@ -398,10 +396,10 @@ class Gameplay:
             self.connected_peers -= 1
 
     def _synch_turn_bottom(self, disconnected_peer_index):
-        if self.connected_peers == 1:
+        if self.connected_peers == 1 and self.current_turn > 0:
             self.current_turn -= 1
             self.connected_peers -= 1
-        elif self.connected_peers == disconnected_peer_index:
+        elif self.connected_peers == disconnected_peer_index and self.current_turn == self.connected_peers:
             self.current_turn = 0
             self.connected_peers -= 1
         else:
