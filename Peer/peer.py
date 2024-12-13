@@ -13,9 +13,15 @@ class Peer(DatagramProtocol):
         if host == "localhost":
             host = "127.0.0.1"
 
-        self.id = ("127.0.0.1", own_port)
+        self.id = None
         self.addresses = [] # for some reason, this array should not be given a type
         self.server = (host, 9999)
+
+        if host == "127.0.0.1":
+            self.id = (host, own_port)
+        else:
+            self.id = (self.get_peer_local_address(), own_port)
+
         self.send_message_thread_active = False
         self.logger = Logger(self.id)
         self.gameplay = Gameplay(self.logger, self.id)
@@ -259,6 +265,18 @@ class Peer(DatagramProtocol):
         except Exception as e:
             self.logger.log_message(f"Could not get message sender index, error: {e}")
             return None
+
+    def get_peer_local_address(self):
+        """Gets the peer's local network address from link-local address."""
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("169.254.0.0", 1))
+            local_address = s.getsockname()[0]
+            s.close()
+            return local_address
+        except Exception as e:
+            self.logger.log_message(f"Could not get Peer's local network address. Defaulting to loopback address.", False)
+            return "127.0.0.1"
 
 def peer_start():
     """Finds an available port for the peer to use"""
