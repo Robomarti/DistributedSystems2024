@@ -6,6 +6,8 @@ from twisted.internet import reactor
 from gameplay import Gameplay
 from logger import Logger
 from heartbeat import HeartbeatManager
+from twisted.internet.task import LoopingCall
+
 
 class Peer(DatagramProtocol):
     """Handles message sending and receiving"""
@@ -33,6 +35,8 @@ class Peer(DatagramProtocol):
     def startProtocol(self):
         """Send a message to the server to get connected to other peers"""
         self.send_message("ready", self.server)
+        self.send_heartbeat_to_server = LoopingCall(self.send_heartbeat_to_server)
+        self.send_heartbeat_to_server.start(5.0)
 
     def stopProtocol(self):
         """Notify the server about disconnection and stop heartbeat."""
@@ -42,10 +46,16 @@ class Peer(DatagramProtocol):
         except Exception as e:
             self.logger.log_message(f"Error notifying server about disconnection: {e}", print_message=False)
         self.heartbeat_manager.stop()
+        self.send_heartbeat_to_server.stop()
+
 
     def send_message(self, message, target_addr):
         """send message to target_addr"""
         self.transport.write(message.encode('utf-8'), target_addr)
+
+    def send_heartbeat_to_server(self):
+        """Send heartbeat message to all connected peers"""
+        self.send_message("HEARTBEAT", self.server)
 
     def handle_type_command(self):
         """Handles gathering user input and sending messages to connected peers"""
