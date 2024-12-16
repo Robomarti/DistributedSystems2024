@@ -1,50 +1,51 @@
-# distributed-systems-2024
+# Peer-To-Peer Blackjack
+
+Peer-To-Peer Blackjack is a Python-based, dealerless Blackjack game designed to operate in a peer-to-peer (P2P) network. The game is played through a command-line interface (CLI), and players can automatically join a game instance by connecting to the Rendezvous Server. Right now, it is required to manually input the IP Address of the Rendezvous Server.
  
-## Set up guide:
+## Set up guide
 
-IGNORE these for the time being, we don't use virtualenv or invokes yet
+Install requirements
 
-
-If you are using Unix-style operating system, you might have to replace all the "python" parts of the invoke commands to "python3" in the tasks.py file.
-
-
-You can have virtualenv installed by using pip install virtualenv. This might make easier to remove unnecessary
-dependencies after testing my application.
-
-
-If you are using virtualenv, first use the command 
-```bash
-virtualenv venv
-```
-to create a virtual environment.
-
-
-Start the virtual environment use 
-```bash
-source venv/Scripts/activate
-```
-or
-```bash
-source venv/bin/activate
-```
-
-Inside virtualenv or normally use 
 ```bash
 pip install -r requirements.txt
 ```
-to install dependencies
 
-Inside virtualenv, to update requirements.txt after installing packages, use 
+Start Rendezvous Server
+
 ```bash
-pip freeze -l > requirements.txt 
+python3 RendezvousServer/server.py
 ```
 
-To start the application, use
+Connect a Peer to the Rendezvous Server
+
 ```bash
-invoke start
+python3 Peer/peer.py 
 ```
 
-To leave virtualenv, use 
+It is assumed that you are running the commands from the root directory of the project.
+
+## Basic game commands
+
+Starting the game
+
 ```bash
-deactivate
+INITIATE_GAME
+```
+
+Drawing a card
+
+```bash
+DRAW_CARD
+```
+
+Passing
+
+```bash
+PASS_TURN
+```
+
+Chating with other players
+
+```bash
+CHAT <your message here>
 ```
