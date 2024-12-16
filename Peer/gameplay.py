@@ -3,7 +3,12 @@ from typing import List, Tuple, Optional
 from logger import Logger
 
 class Gameplay:
-    """Handles all gameplay-related tasks."""
+    """Handles all gameplay-related tasks.
+
+    Args:
+        logger: Reference to the Logger instance.
+        player_id: A tuple representing the player's network address (IP, port).
+    """
 
     def __init__(self, logger: Logger, player_id: Tuple[str, int]):
         self.logger = logger
@@ -38,7 +43,11 @@ class Gameplay:
         self.losers: List[int] = []
 
     def create_deck(self, deck_values: Optional[List[str]] = None):
-        """Handles creating or importing the deck"""
+        """Handles creating or importing the deck
+
+        Args:
+            deck_values: A list of cards which are part of the deck.
+        """
         if deck_values is None:
             self.logger.log_message("First turn player, creating a deck")
             self.deck = self.cards.copy()
@@ -48,18 +57,21 @@ class Gameplay:
             self.deck = deck_values
 
     def handle_input(self, user_input: str):
-        """Handles input from the player."""
+        """Handles input from the player.
+
+        Args:
+            user_input: User's input command.
+        """
         # splitted_input splits the input message by exclamation mark
+        # this works similarly for all cases in which we use this
         # e.g. DRAW_CARD!D2!11 -> ["DRAW_CARD", "D2", "11"]
         splitted_input = user_input.split("!")
         upper_input = splitted_input[0].upper()
 
         if upper_input == "CHAT":
             return self.chat_input(splitted_input)
-        
         if self.is_my_turn() and self.has_current_turn_passed():
             return self.pass_turn_input()
-
         if upper_input == "DRAW_CARD":
             return self.draw_card_input()
         if upper_input == "PASS_TURN":
@@ -68,30 +80,15 @@ class Gameplay:
             self.initialize_points()
             self.initialize_passes()
             return self.initiate_game_input()
-        if upper_input == "SEND_DECK":
-            # This is a developer command as well, players should not
-            # need this and thus should not have access this in the final build
-            return self.send_deck()
-        if upper_input == "CLEAR_LOGS":
-            self.logger.clear_logs()
-            return "dont-send"
-        if upper_input == "PRINT_DECK":
-            self.logger.log_message(str(self.deck))
-            return "dont-send"
-        if upper_input == "PRINT_PASSES":
-            self.logger.log_message(str(self.passes))
-            return "dont-send"
-        if upper_input == "PRINT_TURN":
-            self.logger.log_message(str(self.current_turn))
-            return "dont-send"
-        if upper_input == "PRINT_ID":
-            self.logger.log_message(str(self.own_turn_identifier))
-            return "dont-send"
         self.logger.log_message("Unsupported user input: " + user_input, print_message=False)
         return ""
 
     def chat_input(self, splitted_input: List[str]) -> str:
-        """Processes CHAT! input."""
+        """Processes CHAT! input.
+
+        Args:
+            splitted_input: chat message syntax.
+        """
         return "!".join(splitted_input[1:])
 
     def draw_card_input(self) -> str:
@@ -134,7 +131,11 @@ class Gameplay:
         return "PASS_TURN!"
 
     def initiate_game_input(self) -> List[str]:
-        """Processes INITIATE_GAME! input - this can only be done by the leading player."""
+        """Processes INITIATE_GAME! input - this can only be done by the leading player.
+
+        Returns:
+            A list of deck data.
+        """
         if self.own_turn_identifier != 0:
             self.logger.log_message("You are not the first player; you cannot initiate the game")
             return []
@@ -146,7 +147,15 @@ class Gameplay:
         return [deck_message]
 
     def handle_incoming_commands(self, datagram: str, peer_index: int) -> List[str]:
-        """Handles the commands sent to connected peers (players)."""
+        """Handles the commands sent to connected peers (players).
+
+        Args:
+            datagram: incoming message command as a datagram.
+            peer_index: index of the peer sending the command.
+
+        Returns:
+            A list of resulting commands after processing.
+        """
         resulting_commands = []
         splitted_command = datagram.split("!")
         command = splitted_command[0].upper()
@@ -189,7 +198,11 @@ class Gameplay:
 
     def create_deck_command(self, splitted_command: List[str]):
         """Processes CREATE_DECK! command. \n
-        Also initializes the game if game has not been started yet"""
+        Also, initializes the game if game has not been started yet.
+
+        Args:
+            splitted_command: deck message syntax.
+        """
         deck_values = splitted_command[1:]
         self.create_deck(deck_values)
         self.logger.log_message(f"Deck created: {self.deck}", print_message=False)
@@ -197,7 +210,15 @@ class Gameplay:
             self.current_turn = 0
 
     def draw_card_command(self, splitted_command: List[str], peer_index: int) -> List[str]:
-        """Processes DRAW_CARD! command."""
+        """Processes DRAW_CARD! command.
+
+        Args:
+            splitted_command: draw card message syntax.
+            peer_index: index of the peer sending the command.
+
+        Returns:
+            A list of resulting commands.
+        """
         resulting_commands = []
         card_drawn = splitted_command[1]
         deck_length = int(splitted_command[2])
@@ -223,26 +244,46 @@ class Gameplay:
         return resulting_commands
 
     def pass_turn_command(self, peer_index: int):
-        """Processes PASS_TURN! command."""
+        """Processes PASS_TURN! command.
+
+        Args:
+            peer_index: The index of the peer.
+        """
         self.logger.log_message("Peer passed their turn")
         self.passes[self.current_turn] = True
         self.advance_player_turn(peer_index)
 
     def has_current_turn_passed(self) -> bool:
-        """Checks if the player whose turn it is has passed."""
+        """Checks if the player whose turn it is has passed.
+
+        Returns:
+            True if the current player has passed, False otherwise.
+        """
         return self.passes[self.current_turn]
 
     def is_my_turn(self) -> bool:
-        """Checks if it's the player's turn"""
+        """Checks if it's the player's turn.
+
+        Returns:
+            True if it is the player's turn, False otherwise.
+        """
         return self.current_turn == self.own_turn_identifier
 
     def is_game_initiated(self) -> bool:
-        """Checks if the game has been initiated."""
+        """Checks if the game has been initiated.
+
+        Returns:
+            True if the game has been initiated, False otherwise.
+        """
         return bool(self.current_turn > -1)
 
     def advance_player_turn(self, peer_index: int):
         """Sets the current_turn to advance from the peer who issued this function call.\n
-        Should be called locally and remotely"""
+        Should be called locally and remotely.
+
+        Args:
+            peer_index: The index of the peer.
+        """
         message_from_correct_peer = peer_index - self.current_turn == 0
 
         if message_from_correct_peer:
@@ -259,13 +300,21 @@ class Gameplay:
         self.logger.log_message(str(self.current_turn) + "th player's turn", False)
 
     def send_deck(self) -> str:
-        """Creates a CREATE_DECK! request, send deck data to the peers."""
+        """Creates a CREATE_DECK! request, send deck data to the peers.
+
+        Returns:
+            The deck data to the peers.
+        """
         deck_message = "CREATE_DECK!" + "!".join(self.deck)
         self.logger.log_message(f"Created a deck importation request: {deck_message}", print_message=False)
         return deck_message
 
     def add_points(self, card: str):
-        """Adds points to player's total point value based on the value of the drawn card."""
+        """Adds points to player's total point value based on the value of the drawn card.
+
+        Args:
+            card: The card drawn.
+        """
         card_value = int(card[1:])
 
         self.points[self.current_turn] += card_value
@@ -286,17 +335,21 @@ class Gameplay:
                 self.logger.log_message("Points of a peer went over 21, they lost this game and automatically passed for the rest of the game.")
 
     def update_order_number(self, order_number):
-        """Update own turn identifier"""
+        """Update own turn identifier.
+
+        Args:
+            order_number: The order number of the player.
+        """
         self.own_turn_identifier = int(order_number)
         self.logger.log_message("own_turn_identifier: " + str(order_number), False)
 
     def increment_connected_peers_count(self):
-        """Increment value to know which player is the last"""
+        """Increment value to know which player is the last."""
         self.connected_peers += 1
         self.logger.log_message("connected_peers: " + str(self.connected_peers), False)
 
     def end_game(self):
-        """Ends the game"""
+        """Ends the game."""
         self.logger.log_message("Ending the game, calculating winner...")
         self.decide_winner()
         self.logger.log_message("Game ended, ready for a new game.")
@@ -306,7 +359,7 @@ class Gameplay:
         return "END_GAME!"
 
     def decide_winner(self):
-        """Calculate which player won"""
+        """Calculate which player won."""
         for i in self.losers:
             self.points[i] = 0
 
@@ -328,12 +381,12 @@ class Gameplay:
             self.logger.log_message("You lost!")
 
     def has_everyone_passed(self):
-        """Checks if everyone has passed"""
+        """Checks if everyone has passed."""
         self.logger.log_message("Checking if everyone has passed: " + str(self.passes), False)
         return all(value is True for value in self.passes.values())
 
     def initialize_passes(self):
-        """Adds all uninitialized pass values"""
+        """Adds all uninitialized pass values."""
         self.logger.log_message("Initializing self.passes", False)
         # +1 in range to iniate this peer as well
         for i in range(self.connected_peers+1):
@@ -342,7 +395,7 @@ class Gameplay:
         self.logger.log_message("Completed self.passes: " + str(self.passes), False)
 
     def initialize_points(self):
-        """Adds all uninitialized points values"""
+        """Adds all uninitialized points values."""
         self.logger.log_message("Initializing self.points", False)
         # +1 in range to iniate this peer as well
         for i in range(self.connected_peers+1):
@@ -350,8 +403,13 @@ class Gameplay:
                 self.points[i] = 0
         self.logger.log_message("Completed self.points: " + str(self.points), False)
 
-    def synchronize_turn_orders(self, disconnected_peer_index: int, addresses: List):
-        """Adjusts the states related to the turn orders based on the position of the disconnected peer"""
+    def synchronize_turn_orders(self, disconnected_peer_index: int, addresses: List[Tuple[str, int]]):
+        """Adjusts the states related to the turn orders based on the position of the disconnected peer.
+
+        Args:
+            disconnected_peer_index: The index of the peer that disconnected.
+            addresses: player network addresses
+        """
 
         # case in which disconnected peer was the first element of the list
         if disconnected_peer_index == 0:
@@ -371,7 +429,7 @@ class Gameplay:
                 return self.pass_turn_input()
             return
 
-        # ... and hopefully all other cases fall here
+        # all the other cases which do not fit the first two
         for index, (ip, port) in enumerate(addresses):
             if (ip, port) == self.player_id:
                 if index > disconnected_peer_index:
@@ -387,6 +445,7 @@ class Gameplay:
         return None
 
     def _synch_turn_top(self):
+        """Handles turn order synchronization when the disconnected peer is the first player."""
         if self.current_turn == 0:
             self.own_turn_identifier -= 1
             self.connected_peers -= 1
@@ -396,6 +455,11 @@ class Gameplay:
             self.connected_peers -= 1
 
     def _synch_turn_bottom(self, disconnected_peer_index):
+        """Handles turn order synchronization when the disconnected peer is the last player.
+
+        Args:
+            disconnected_peer_index: The index of the disconnected peer.
+        """
         if self.connected_peers == 1 and self.current_turn > 0:
             self.current_turn -= 1
             self.connected_peers -= 1
@@ -406,14 +470,22 @@ class Gameplay:
             self.connected_peers -= 1
 
     def synchronize_passes(self, disconnected_peer_index: int):
-        """Removes the disconnected peer's data from the passes dictionary and re-indexes the keys accordingly."""
+        """Removes the disconnected peer's data from the passes dictionary and re-indexes the keys accordingly.
+
+        Args:
+            disconnected_peer_index: The index of the disconnected peer.
+        """
         if self.passes:
             if disconnected_peer_index in self.passes:
                 self.passes.pop(disconnected_peer_index)
             self.passes = {index: value for index, value in enumerate(self.passes.values())}
 
     def synchronize_points(self, disconnected_peer_index: int):
-        """Removes the disconnected peer's data from the points dictionary and re-indexes the keys accordingly."""
+        """Removes the disconnected peer's data from the points dictionary and re-indexes the keys accordingly.
+
+        Args:
+            disconnected_peer_index: The index of the disconnected peer.
+        """
         if self.points:
             if disconnected_peer_index in self.points:
                 self.points.pop(disconnected_peer_index)

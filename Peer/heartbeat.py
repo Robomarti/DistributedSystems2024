@@ -6,10 +6,10 @@ if TYPE_CHECKING:
     from peer import Peer
 
 class HeartbeatManager:
-    """Manages heartbeat by constantly checking peers to detect any faults within the system
+    """Manages heartbeat by constantly checking peers to detect any faults within the system.
 
     Args:
-        peer: Reference to the Peer instance
+        peer: Reference to the Peer instance.
         heartbeat_interval: How often to send heartbeats (seconds). Default: 1s.
         timeout: How long to wait before considering a peer disconnected (seconds). Default: 2s.
     """
@@ -26,7 +26,7 @@ class HeartbeatManager:
         self.retry_delay = 0.5
 
     def start(self):
-        """Start the heartbeat checking and sending loops"""
+        """Start the heartbeat checking and sending loops."""
         try:
             self.send_loop = reactor.callLater(0, self.send_heartbeats)
             self.check_loop = reactor.callLater(0, self.check_connections)
@@ -36,7 +36,7 @@ class HeartbeatManager:
                 print_message=False)
 
     def stop(self):
-        """Stop the heartbeat checking and sending loops"""
+        """Stop the heartbeat checking and sending loops."""
         try:
             if self.check_loop and self.check_loop.active():
                 self.check_loop.cancel()
@@ -48,7 +48,11 @@ class HeartbeatManager:
                 print_message=False)
 
     def send_heartbeats(self, retry_count: int = 0):
-        """Send heartbeat messages to all connected peers with retry logic"""
+        """Send heartbeat messages to all connected peers with retry logic.
+
+        Args:
+            retry_count: Number of retries attempted so far for failed heartbeats.
+        """
         try:
             for peer_address in self.peer.addresses:
                 try:
@@ -84,11 +88,15 @@ class HeartbeatManager:
                 self.heartbeat_interval, self.send_heartbeats, 0)
 
     def handle_send_failure(self, peer_address: Tuple[str, int]):
-        """Handle cases where sending heartbeat consistently fails"""
+        """Handle cases where sending heartbeat consistently fails.
+
+        Args:
+            peer_address: Address of the peer for which the heartbeat failed.
+        """
         self.notify_disconnection_to_peers(peer_address)
 
     def check_connections(self):
-        """Check for peers that haven't sent heartbeats recently"""
+        """Check for peers that haven't sent heartbeats recently."""
         try:
             current_time = time()
             disconnected_peers = []
@@ -112,7 +120,11 @@ class HeartbeatManager:
                 self.heartbeat_interval, self.check_connections)
 
     def notify_disconnection_to_peers(self, peer_address: Tuple[str, int]):
-        """Notify peers about a disconnect."""
+        """Notify peers about a disconnect.
+
+        Args:
+            peer_address: Address of disconnected peer.
+        """
         if peer_address in self.peer.addresses:
             self.peer.logger.log_message(
                 "Peer disconnected due to heartbeat timeout.", print_message=True
@@ -130,7 +142,11 @@ class HeartbeatManager:
                     )
 
     def record_heartbeat(self, peer_address: Tuple[str, int]):
-        """Record that we received a heartbeat from a peer"""
+        """Record that we received a heartbeat from a peer.
+
+        Args:
+            peer_address: Address of the peer that sent the heartbeat.
+        """
         try:
             self.last_heartbeats[peer_address] = time()
         except Exception as e:

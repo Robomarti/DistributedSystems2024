@@ -7,29 +7,27 @@ from gameplay import Gameplay
 from logger import Logger
 from heartbeat import HeartbeatManager
 from twisted.internet.task import LoopingCall
-
+from typing_extensions import Tuple
 
 class Peer(DatagramProtocol):
-    """Handles message sending and receiving"""
+    """Handles message sending and receiving.
+
+    Args:
+        host: The server host address (network address or 'localhost').
+        own_port: The port number of the peer.
+    """
     def __init__(self, host, own_port):
         if host == "localhost":
             host = "127.0.0.1"
 
-        self.id = None
+        self.id = (host, own_port) if host == "127.0.0.1" else (self.get_peer_local_address(), own_port)
         self.addresses = [] # for some reason, this array should not be given a type
         self.server = (host, 9999)
-
-        if host == "127.0.0.1":
-            self.id = (host, own_port)
-        else:
-            self.id = (self.get_peer_local_address(), own_port)
-
         self.send_message_thread_active = False
         self.logger = Logger(self.id)
         self.gameplay = Gameplay(self.logger, self.id)
         self.heartbeat_manager = HeartbeatManager(self)
         self.lamport_clock: int = 0
-
         self.logger.log_message("Own address: " + str(self.id), print_message=False)
 
     def startProtocol(self):
@@ -50,15 +48,20 @@ class Peer(DatagramProtocol):
 
 
     def send_message(self, message, target_addr):
-        """send message to target_addr"""
+        """Send a message to a target address.
+
+        Args:
+            message: The message to send.
+            target_addr: The target address (host, port).
+        """
         self.transport.write(message.encode('utf-8'), target_addr)
 
     def send_heartbeat_to_server(self):
-        """Send heartbeat message to all connected peers"""
+        """Send heartbeat message to all connected peers."""
         self.send_message("HEARTBEAT", self.server)
 
     def handle_type_command(self):
-        """Handles gathering user input and sending messages to connected peers"""
+        """Handles gathering user input and sending messages to connected peers."""
         while True:
             self.logger.log_message("Type a command: ")
             user_input = input()
@@ -81,7 +84,11 @@ class Peer(DatagramProtocol):
             self._log_and_send_messages(message_to_send)
 
     def _log_and_send_messages(self, messages):
-        """Logs and sends messages to all connected peers with error tolerance"""
+        """Logs and sends messages to all connected peers with error tolerance.
+
+        Args:
+            messages: The messages to be logged and sent.
+        """
         # increment logical clock
         self.lamport_clock += 1
 
@@ -104,6 +111,12 @@ class Peer(DatagramProtocol):
 
 
     def datagramReceived(self, datagram: bytes, addr):
+        """Handles routing of the messages to the their corresponding handlers.
+
+        Args:
+            datagram: The received message as a datagram.
+            addr: The address of the sender.
+        """
         datagram = datagram.decode("utf-8")
         if "HEARTBEAT" not in datagram:
             self.logger.log_message(f"Received datagram: {datagram}", False)
@@ -113,7 +126,12 @@ class Peer(DatagramProtocol):
             self.handle_other_datagrams(datagram, addr)
 
     def handle_other_datagrams(self, datagram: str, addr):
-        """Handles messages from other peers and heartbeat manager"""
+        """Handles the incoming messages from peers or heartbeat manager.
+
+        Args:
+            datagram: The received message as a datagram.
+            addr: The address of the sender.
+        """
         try:
             lamport = datagram.split("^")
             splitted_command = lamport[0].split("!")
@@ -163,12 +181,14 @@ class Peer(DatagramProtocol):
             self.logger.log_message(f"Error handling datagram from {addr}: {e}", print_message=False)
 
     def handle_datagram_from_server(self, datagram: str):
-        """Handles messages from the rendezvous server"""
+        """Handles messages from the rendezvous server.
+
+        Args:
+            datagram: The received message as a datagram.
+        """
         datagram_data = datagram.split("!")
         if datagram_data[0] == "PLAYER_ORDER":
             self.handle_player_order(datagram_data)
-
-        # new
         elif datagram_data[0] == "PEER_DISCONNECTED":
             self.handle_server_disconnection(datagram_data)
         # If this is called here, the first player can't issue commands
@@ -179,7 +199,11 @@ class Peer(DatagramProtocol):
             self.heartbeat_manager.start()
 
     def handle_player_order(self, datagram_data):
-        """Handles the player order message from the server"""
+        """Handles the player order message from the server
+
+         Args:
+            datagram_data: The message from the server.
+        """
         try:
             player_order_number = int(datagram_data[1])
 
@@ -209,9 +233,12 @@ class Peer(DatagramProtocol):
         except (IndexError, ValueError) as e:
             self.logger.log_message(f"Error processing player order message: {e}", print_message=False)
 
-    # maybe this function should not be used, just receive the whole list of peer addresses from the server
-    def add_peer_address(self, peer_address):
-        """Adds a peer address to self.addresses."""
+    def add_peer_address(self, peer_address: Tuple[str, int]):
+        """Adds a peer address to self.addresses.
+
+        Args:
+            peer_address: The address (IP, port) of the peer to add.
+        """
         if not isinstance(peer_address, tuple) or len(peer_address) != 2:
             self.logger.log_message(f"Invalid peer address format: {peer_address}", print_message=False)
             return False
@@ -231,8 +258,12 @@ class Peer(DatagramProtocol):
             )
             return False
 
-    def handle_peer_disconnection(self, disconnected_peer):
-        """Handles logic when a peer disconnects"""
+    def handle_peer_disconnection(self, disconnected_peer: Tuple[str, int]):
+        """Handles logic when a peer disconnects.
+        
+        Args:
+            disconnected_peer: The address of the disconnected peer.
+        """
         try:
             disconnected_peer_index = None
             try:
@@ -256,7 +287,11 @@ class Peer(DatagramProtocol):
             self.logger.log_message(f"Error handling PEER_DISCONNECTED: {str(e)}")
 
     def handle_server_disconnection(self, datagram_data):
-        """Handle disconnection messages from the server."""
+        """Handle disconnection messages from the server.
+
+        Args:
+            datagram_data: The message from the server.
+        """
         try:
             disconnected_peer_ip = datagram_data[1]
             disconnected_peer_port = int(datagram_data[2])
@@ -266,8 +301,12 @@ class Peer(DatagramProtocol):
         except (IndexError, ValueError) as e:
             self.logger.log_message(f"Error processing server disconnection message: {e}", False)
 
-    def get_peer_index(self, addr):
-        """Tries to get the turn index of a peer"""
+    def get_peer_index(self, addr: Tuple[int, str]):
+        """Tries to get the turn index of a peer.
+
+        Args:
+            addr: The address (IP, port) of the peer.
+        """
         try:
             # self.addresses has to have self.id for this to work
             sender_index = self.addresses.index(addr)
