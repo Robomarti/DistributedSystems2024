@@ -23,8 +23,8 @@ class Gameplay:
 
         self.supported_incoming_commands = [
             "CREATE_DECK", "DRAW_CARD",
-            "PASS_TURN", "END_GAME", "INVALID_ACTION",
-            "SYNC_ERROR", "REQUEST_DECK", "TURN_ORDER"
+            "PASS_TURN", "END_GAME",
+            "SYNC_ERROR", "REQUEST_DECK",
         ]
 
         self.cards = [
@@ -80,6 +80,7 @@ class Gameplay:
             self.initialize_points()
             self.initialize_passes()
             return self.initiate_game_input()
+
         self.logger.log_message("Unsupported user input: " + user_input, print_message=False)
         return ""
 
@@ -171,8 +172,6 @@ class Gameplay:
             resulting_commands.extend(self.draw_card_command(splitted_command, peer_index))
         elif command == "PASS_TURN":
             self.pass_turn_command(peer_index)
-        elif command == "INVALID_ACTION":
-            self.logger.log_message("Invalid action")
         elif command == "SYNC_ERROR":
             self.logger.log_message("Sync error detected")
             resulting_commands.append("REQUEST_DECK")
