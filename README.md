@@ -44,7 +44,7 @@ Passing
 PASS_TURN
 ```
 
-Chating with other players
+Chatting with other players
 
 ```bash
 CHAT <your message here>
